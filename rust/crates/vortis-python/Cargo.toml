@@ -1,0 +1,32 @@
+[package]
+name = "vortis-python"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "vortis_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+vortis-core = { path = "../vortis-core" }
+vortis-engine = { path = "../vortis-engine" }
+vortis-security = { path = "../vortis-security" }
+vortis-tools = { path = "../vortis-tools" }
+vortis-agents = { path = "../vortis-agents" }
+vortis-traces = { path = "../vortis-traces" }
+vortis-telemetry = { path = "../vortis-telemetry" }
+vortis-learning = { path = "../vortis-learning" }
+vortis-mcp = { path = "../vortis-mcp" }
+vortis-sessions = { path = "../vortis-sessions" }
+vortis-workflow = { path = "../vortis-workflow" }
+vortis-skills = { path = "../vortis-skills" }
+vortis-recipes = { path = "../vortis-recipes" }
+vortis-templates = { path = "../vortis-templates" }
+vortis-a2a = { path = "../vortis-a2a" }
+vortis-scheduler = { path = "../vortis-scheduler" }
+pyo3 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
