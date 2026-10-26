@@ -1,0 +1,35 @@
+
+[cells.skillorchestra-gaia-qwen27b-opus-3]
+method = "skillorchestra"
+bench  = "gaia"
+n      = 3
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7",      endpoint = "anthropic" }
+method_cfg = { routing_strategy = "weighted_avg", handbook_path = "handbook_seed.json", max_rounds = 6 }
+
+[cells.skillorchestra-swebenchverified-qwen27b-opus-3]
+method = "skillorchestra"
+bench  = "swebench-verified"
+n      = 3
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7",      endpoint = "anthropic" }
+method_cfg = { swe_use_agent_loop = true, swe_max_turns = 50, swe_bash_timeout_s = 120 }
+concurrency = 3
+
+[cells.skillorchestra-gaia-qwen27b-opus-30]
+method = "skillorchestra"
+bench  = "gaia"
+n      = 30
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7",      endpoint = "anthropic" }
+method_cfg = { routing_strategy = "weighted_avg", handbook_path = "handbook_seed.json", max_rounds = 6 }
+concurrency = 4
+
+[cells.skillorchestra-swebenchverified-qwen27b-opus-30]
+method = "skillorchestra"
+bench  = "swebench-verified"
+n      = 30
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7",      endpoint = "anthropic" }
+method_cfg = { swe_use_agent_loop = true, swe_max_turns = 50, swe_bash_timeout_s = 120 }
+concurrency = 3

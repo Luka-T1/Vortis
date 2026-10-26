@@ -1,0 +1,24 @@
+
+[cells.mini-swe-agent-swebenchverified-opus-3]
+method = "mini_swe_agent"
+bench  = "swebench-verified"
+n      = 3
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { backbone = "cloud", max_turns = 30, bash_timeout_s = 120, turn_max_tokens = 4096 }
+
+[cells.mini-swe-agent-swebenchverified-opus-30]
+method = "mini_swe_agent"
+bench  = "swebench-verified"
+n      = 30
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { backbone = "cloud", max_turns = 50, bash_timeout_s = 120, turn_max_tokens = 4096 }
+
+[cells.mini-swe-agent-swebenchverified-qwen27b-3]
+method = "mini_swe_agent"
+bench  = "swebench-verified"
+n      = 3
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { backbone = "local", max_turns = 30, bash_timeout_s = 120, turn_max_tokens = 4096 }

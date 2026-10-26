@@ -1,0 +1,163 @@
+
+
+[cells.toolorchestra-gaia-qwen27b-opus-3]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 3
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { max_turns = 6, orchestrator_max_tokens = 1024, worker_max_tokens = 4096 }
+
+[cells.toolorchestra-swebenchverified-qwen27b-opus-3]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 3
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { max_turns = 6, orchestrator_max_tokens = 1024, worker_max_tokens = 8192 }
+
+[cells.toolorchestra-gaia-qwen27b-opus-30]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 30
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { max_turns = 8, orchestrator_max_tokens = 1024, worker_max_tokens = 4096 }
+
+[cells.toolorchestra-orch8b-opus47-gaia-n100]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2 }
+concurrency = 4
+
+[cells.toolorchestra-orch8b-opus47-swe-n100]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 3
+
+[cells.toolorchestra-papermatch-orch8b-opus47-gaia-n5]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 5
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2, pool = "paper", modal_python_timeout_s = 60, tavily_max_results = 5 }
+concurrency = 1
+
+[cells.toolorchestra-orch8b-opus47-swe-smoke2]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 2
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 6, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 15, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 1
+
+[cells.toolorchestra-orch8b-haiku45-gaia-n100]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "claude-haiku-4-5", endpoint = "anthropic" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2 }
+concurrency = 3
+
+[cells.toolorchestra-orch8b-haiku45-swe-n100]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "claude-haiku-4-5", endpoint = "anthropic" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 3
+
+[cells.toolorchestra-orch8b-gpt5-gaia-n100]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gpt-5", endpoint = "openai" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2 }
+concurrency = 2
+
+[cells.toolorchestra-orch8b-gpt5-swe-n100]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gpt-5", endpoint = "openai" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 2
+
+[cells.toolorchestra-orch8b-gpt5mini-gaia-n100]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gpt-5-mini", endpoint = "openai" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2 }
+concurrency = 2
+
+[cells.toolorchestra-orch8b-gpt5mini-swe-n100]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gpt-5-mini", endpoint = "openai" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 2
+
+[cells.toolorchestra-orch8b-gemini25pro-gaia-n100]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gemini-2.5-pro", endpoint = "gemini" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2 }
+concurrency = 3
+
+[cells.toolorchestra-orch8b-gemini25pro-swe-n100]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gemini-2.5-pro", endpoint = "gemini" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 3
+
+[cells.toolorchestra-orch8b-gemini25flash-gaia-n100]
+method = "toolorchestra"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gemini-2.5-flash", endpoint = "gemini" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 4096, worker_temperature = 0.2 }
+concurrency = 3
+
+[cells.toolorchestra-orch8b-gemini25flash-swe-n100]
+method = "toolorchestra"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "nvidia/Orchestrator-8B", endpoint = "http://localhost:8003/v1" }
+cloud  = { model = "gemini-2.5-flash", endpoint = "gemini" }
+method_cfg = { orchestrator_mode = "rl", orchestrator_endpoint = "http://localhost:8003/v1", orchestrator_model = "nvidia/Orchestrator-8B", max_turns = 8, orchestrator_max_tokens = 4096, worker_max_tokens = 8192, worker_temperature = 0.2, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 3

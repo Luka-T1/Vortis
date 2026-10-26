@@ -1,0 +1,61 @@
+
+
+[cells.baseline-local-gemma31b-gaia-n100]
+method = "baseline_local"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "google/gemma-4-31B-it", endpoint = "http://localhost:8004/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { local_max_tokens = 4096 }
+concurrency = 4
+
+[cells.baseline-local-gemma31b-swe-n100]
+method = "baseline_local"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "google/gemma-4-31B-it", endpoint = "http://localhost:8004/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { local_max_tokens = 4096, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 4
+
+[cells.baseline-local-qwen36-gaia-n100]
+method = "baseline_local"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "Qwen/Qwen3.6-27B-FP8", endpoint = "http://localhost:8002/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { local_max_tokens = 4096 }
+concurrency = 4
+
+[cells.baseline-local-qwen36-swe-n100]
+method = "baseline_local"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "Qwen/Qwen3.6-27B-FP8", endpoint = "http://localhost:8002/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { local_max_tokens = 4096, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 4
+
+[cells.baseline-local-qwen27b-gaia-n100]
+method = "baseline_local"
+bench  = "gaia"
+n      = 100
+subset = "gaia_n100_seed42.json"
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { local_max_tokens = 4096 }
+concurrency = 4
+
+[cells.baseline-local-qwen27b-swe-n100]
+method = "baseline_local"
+bench  = "swebench-verified"
+n      = 100
+subset = "swebench_verified_n100_seed42.json"
+local  = { model = "Qwen/Qwen3.5-27B-FP8", endpoint = "http://localhost:8001/v1" }
+cloud  = { model = "claude-opus-4-7", endpoint = "anthropic" }
+method_cfg = { local_max_tokens = 4096, swe_use_agent_loop = true, swe_max_turns = 30, swe_bash_timeout_s = 120, swe_turn_max_tokens = 4096 }
+concurrency = 4
