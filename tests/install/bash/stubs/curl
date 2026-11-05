@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+echo "$@" >> "${CURL_STUB_LOG:-/dev/null}"
+if [[ "${CURL_STUB_OUTPUT_FILE:-}" ]]; then
+    cat "$CURL_STUB_OUTPUT_FILE"
+fi
+exit "${CURL_STUB_EXIT:-0}"

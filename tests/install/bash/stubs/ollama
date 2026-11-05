@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "$@" >> "${OLLAMA_STUB_LOG:-/dev/null}"
+exit "${OLLAMA_STUB_EXIT:-0}"

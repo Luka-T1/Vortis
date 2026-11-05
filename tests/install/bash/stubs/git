@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+echo "$@" >> "${GIT_STUB_LOG:-/dev/null}"
+case "$1" in
+    clone)
+        target=""
+        url=""
+        shift  # past 'clone'
+        while [[ $# -gt 0 ]]; do
+            if [[ "$1" == --* ]] || [[ "$1" == -* ]]; then
+                shift  # skip flag and its possible value
+                if [[ $# -gt 0 ]] && [[ "$1" != --* ]] && [[ "$1" != -* ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
+                    shift  # depth=N etc.
+                fi
+                continue
+            fi
+            if [[ -z "$url" ]]; then
+                url="$1"
+            else
+                target="$1"
+            fi
+            shift
+        done
+        if [[ -z "$target" ]]; then
+            target="${url##*/}"
+            target="${target%.git}"
+        fi
+        mkdir -p "$target/scripts/install"
+        for s in install-rust.sh build-extension.sh pull-model.sh bg-orchestrator.sh \
+                 vortis-wrapper.sh vortis-uninstall.sh; do
+            cat > "$target/scripts/install/$s" <<EOF2
+#!/usr/bin/env bash
+exit 0
+EOF2
+            chmod +x "$target/scripts/install/$s"
+        done
+        mkdir -p "$target/.git"
+        cat > "$target/pyproject.toml" <<EOF2
+[project]
+name = "Vortis"
+version = "0.1.1"
+requires-python = ">=3.11,<3.14"
+EOF2
+        ;;
+    pull)
+        ;;
+    *)
+        ;;
+esac
+exit "${GIT_STUB_EXIT:-0}"

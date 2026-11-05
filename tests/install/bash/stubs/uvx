@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+printf 'VIRTUAL_ENV=%s\n' "${VIRTUAL_ENV:-}" >> "${UV_STUB_LOG:-/dev/null}"
+echo "$*" >> "${UV_STUB_LOG:-/dev/null}"
+exit "${UV_STUB_EXIT:-0}"

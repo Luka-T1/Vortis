@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "$@" >> "${UV_STUB_LOG:-/dev/null}"
+exit "${UV_STUB_EXIT:-0}"
