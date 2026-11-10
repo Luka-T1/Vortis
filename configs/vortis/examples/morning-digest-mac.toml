@@ -1,0 +1,37 @@
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:9b"       # Good balance of speed + quality on M1/M2/M3
+
+[agent]
+default_agent = "simple"
+
+[tools]
+enabled = ["code_interpreter", "web_search", "file_read", "shell_exec", "digest_collect", "text_to_speech"]
+
+[digest]
+enabled = true
+schedule = "0 7 * * *"             # 7 AM daily
+timezone = "America/Los_Angeles"   # Change to your timezone
+persona = "vortis"
+honorific = "sir"                  # "sir", "ma'am", "boss", or any custom
+tts_backend = "cartesia"           # "cartesia" or "openai"
+voice_id = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"  # Alistair (British male)
+voice_speed = 1.2                  # 1.0 = normal, 1.2 = 20% faster
+
+sections = ["health", "messages", "calendar", "world"]
+
+[digest.health]
+sources = ["oura"]                 # Add "apple_health" if you export from iPhone
+
+[digest.messages]
+sources = ["gmail", "google_tasks", "imessage"]
+
+[digest.calendar]
+sources = ["gcalendar"]
+
+[digest.world]
+sources = ["hackernews", "news_rss"]
+

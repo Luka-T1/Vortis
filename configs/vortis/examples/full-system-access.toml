@@ -1,0 +1,23 @@
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:9b"
+
+[agent]
+default_agent = "orchestrator"
+max_turns = 10
+
+[tools]
+enabled = [
+    "shell_exec",
+    "file_read",
+    "file_write",
+    "apply_patch",
+    "code_interpreter",
+    "git_status",
+    "git_diff",
+    "think",
+    "calculator",
+]

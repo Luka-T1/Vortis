@@ -1,0 +1,23 @@
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:4b"      # Small, fast, runs on any machine
+
+[tools]
+enabled = ["digest_collect", "text_to_speech"]
+
+[digest]
+enabled = true
+persona = "vortis"
+honorific = "sir"
+tts_backend = "openai"
+voice_id = "onyx"
+sections = ["messages", "calendar"]
+
+[digest.messages]
+sources = ["gmail"]
+
+[digest.calendar]
+sources = ["gcalendar"]

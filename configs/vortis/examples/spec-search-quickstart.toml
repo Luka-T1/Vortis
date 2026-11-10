@@ -1,0 +1,45 @@
+
+
+[engine]
+default = "ollama"               # swap to "vllm" on H100/RTX 6000 / DGX Spark
+
+[intelligence]
+default_model = "qwen3.5:9b"     # the local student
+
+[agent]
+default_agent = "orchestrator"   # multi-turn, tool-using
+max_turns = 10
+
+[tools]
+enabled = [
+    "code_interpreter",
+    "file_read",
+    "web_search",
+    "think",
+    "calculator",
+]
+
+[learning.spec_search]
+enabled = true
+teacher_model = "claude-opus-4-6"      # frontier proposer
+teacher_engine = "cloud"               # CloudEngine registry key (uses LiteLLM)
+autonomy_mode  = "tiered"              # auto | tiered | manual
+
+min_traces                   = 20
+max_cost_per_session_usd     = 5.0
+max_tool_calls_per_diagnosis = 30
+
+stagnation_k        = 5      # stop after this many sessions with no gate-score gain
+stagnation_eps      = 0.001  # delta below this counts as no improvement
+max_total_cost_usd  = 50.0   # cumulative teacher-cost budget across all sessions
+
+max_regression           = 0.01   # paper default: 1%
+min_improvement          = 0.0
+benchmark_subsample_size = 50
+benchmark_version        = "personal_v1"
+
+[learning.spec_search.composite_reward]
+alpha = 0.5     # accuracy weight
+beta  = 0.1     # energy penalty
+gamma = 0.1     # latency penalty
+delta = 0.3     # cost penalty

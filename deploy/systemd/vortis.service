@@ -1,0 +1,29 @@
+[Unit]
+Description=Vortis API Server
+After=network.target
+
+[Service]
+Type=simple
+User=vortis
+WorkingDirectory=/opt/vortis
+ExecStart=/opt/vortis/.venv/bin/vortis serve --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/opt/vortis
+EnvironmentFile=/etc/vortis/env
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/vortis
+ProtectHome=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

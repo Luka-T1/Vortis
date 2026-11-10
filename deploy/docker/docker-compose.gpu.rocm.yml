@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  vortis:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.gpu.rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render

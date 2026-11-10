@@ -1,0 +1,13 @@
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:4b"       # Fast and lightweight
+
+[agent]
+default_agent = "simple"            # Single-turn, no tools
+
+[server]
+host = "127.0.0.1"
+port = 8000
