@@ -9,7 +9,7 @@ import threading
 import time
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from vortis.server.api_routes import include_all_routes
@@ -448,27 +448,37 @@ def create_app(
             logger.debug("Webhook routes init skipped: %s", exc)
 
     static_dir = pathlib.Path(__file__).parent / "static"
-    if static_dir.is_dir():
-        assets_dir = static_dir / "assets"
-        if assets_dir.is_dir():
-            app.mount(
-                "/assets",
-                _NoCacheStaticFiles(directory=assets_dir),
-                name="static-assets",
-            )
+    assets_dir = static_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount(
+            "/assets",
+            _NoCacheStaticFiles(directory=assets_dir),
+            name="static-assets",
+        )
 
-        @app.get("/{full_path:path}")
-        async def spa_catch_all(full_path: str):
-            """Serve static files directly, fall back to index.html for SPA routes."""
-            if full_path:
-                candidate = (static_dir / full_path).resolve()
-                resolved_root = static_dir.resolve()
-                if candidate.is_relative_to(resolved_root) and candidate.is_file():
-                    return FileResponse(candidate, headers=_NO_CACHE_HEADERS)
-            return FileResponse(
-                static_dir / "index.html",
-                headers=_NO_CACHE_HEADERS,
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_catch_all(full_path: str):
+        """Serve the built web UI, falling back to index.html for SPA routes.
+
+        Resolved per request so a frontend built after the server started is
+        picked up without a restart.
+        """
+        index = static_dir / "index.html"
+        if not index.is_file():
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "detail": "Not Found",
+                    "hint": (
+                        "Web UI not built. Run: cd frontend && npm ci && npm run build"
+                    ),
+                },
             )
+        if full_path:
+            candidate = (static_dir / full_path).resolve()
+            if candidate.is_relative_to(static_dir.resolve()) and candidate.is_file():
+                return FileResponse(candidate, headers=_NO_CACHE_HEADERS)
+        return FileResponse(index, headers=_NO_CACHE_HEADERS)
 
     return app
 
