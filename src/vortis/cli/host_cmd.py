@@ -194,6 +194,9 @@ def _install_binary_backend(backend: str, console: Console) -> bool:
             "  macOS / Linux:\n"
             "    curl -fsSL https://ollama.com/install.sh | sh\n"
             "\n"
+            "  Windows:\n"
+            "    winget install Ollama.Ollama\n"
+            "\n"
             "  Or download from: https://ollama.com/download"
         ),
         "llamacpp": (

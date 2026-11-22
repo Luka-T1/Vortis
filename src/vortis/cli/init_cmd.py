@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 from pathlib import Path
 from typing import Optional
 
@@ -65,6 +66,22 @@ def _detect_running_engines() -> list[str]:
     return running
 
 
+def _ollama_install_text() -> str:
+    """Platform-specific commands that install and start Ollama."""
+    system = platform.system()
+    if system == "Windows":
+        return (
+            "     winget install Ollama.Ollama\n"
+            "     (Ollama starts automatically after install)\n"
+        )
+    if system == "Darwin":
+        return (
+            "     brew install ollama   (or https://ollama.com/download)\n"
+            "     ollama serve\n"
+        )
+    return "     curl -fsSL https://ollama.com/install.sh | sh\n     ollama serve\n"
+
+
 def _next_steps_text(engine: str, model: str = "") -> str:
     """Return engine-specific next-steps guidance after init."""
     pull_model = model or "qwen3.5:2b"
@@ -73,9 +90,8 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "Next steps:\n"
             "\n"
             "  1. Install and start Ollama:\n"
-            "     curl -fsSL https://ollama.com/install.sh | sh\n"
-            "     ollama serve\n"
-            "\n"
+            + _ollama_install_text()
+            + "\n"
             f"  2. Pull a model:\n"
             f"     ollama pull {pull_model}\n"
             "\n"
