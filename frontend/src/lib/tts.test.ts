@@ -246,3 +246,26 @@ describe('autoplay gating', () => {
     ).toBe(false);
   });
 });
+
+describe('voice selection', () => {
+  const voice = (name: string, lang: string) => ({ name, lang }) as SpeechSynthesisVoice;
+
+  it('guesses Serbian from diacritics and common words', async () => {
+    const { guessLanguage } = await import('./tts');
+    expect(guessLanguage('Rezultat je 391.')).toBe('sr');
+    expect(guessLanguage('Uključio sam svetlo')).toBe('sr');
+    expect(guessLanguage('The result is 391.')).toBe('en');
+  });
+
+  it('prefers a natural Serbian voice and falls back to Croatian', async () => {
+    const { pickBrowserVoice } = await import('./tts');
+    const voices = [
+      voice('Microsoft David', 'en-US'),
+      voice('Microsoft Gabrijela', 'hr-HR'),
+      voice('Microsoft Nicholas Online (Natural) - Serbian (Latin, Serbia)', 'sr-Latn-RS'),
+    ];
+    expect(pickBrowserVoice('sr', voices)?.lang).toBe('sr-Latn-RS');
+    expect(pickBrowserVoice('sr', voices.slice(0, 2))?.lang).toBe('hr-HR');
+    expect(pickBrowserVoice('sr', voices.slice(0, 1))).toBeNull();
+  });
+});

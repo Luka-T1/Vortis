@@ -22,6 +22,51 @@ let objectUrl: string | null = null;
 let controller: AbortController | null = null;
 let token = 0;
 let healthProbe: Promise<void> | null = null;
+let browserUtterance: SpeechSynthesisUtterance | null = null;
+
+const SERBIAN_WORDS = new Set([
+  'je', 'da', 'ne', 'sam', 'si', 'smo', 'su', 'i', 'u', 'na', 'za', 'od', 'sa', 'se', 'to', 'ovo', 'kako',
+  'sta', 'što', 'šta', 'koji', 'koja', 'koje', 'ali', 'ili', 'jer', 'ima', 'nema', 'može', 'mogu', 'evo',
+  'jednako', 'puta', 'treba', 'hvala', 'molim', 'gotovo', 'urađeno',
+]);
+const ENGLISH_WORDS = new Set([
+  'the', 'is', 'are', 'and', 'of', 'to', 'in', 'it', 'you', 'that', 'for', 'with', 'this', 'what', 'can',
+  'i', 'be', 'on', 'not', 'have', 'done', 'here',
+]);
+
+export function guessLanguage(text: string): 'sr' | 'en' {
+  if (/[čćšžđ\u0400-\u04ff]/i.test(text)) return 'sr';
+  let sr = 0;
+  let en = 0;
+  for (const word of text.toLowerCase().match(/\p{L}+/gu) ?? []) {
+    if (SERBIAN_WORDS.has(word)) sr++;
+    if (ENGLISH_WORDS.has(word)) en++;
+  }
+  return sr > en ? 'sr' : 'en';
+}
+
+const VOICE_LANGS: Record<'sr' | 'en', string[]> = {
+  sr: ['sr', 'hr', 'bs', 'sh'],
+  en: ['en'],
+};
+
+function browserSynth(): SpeechSynthesis | null {
+  return typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
+}
+
+export function pickBrowserVoice(lang: 'sr' | 'en', voices?: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const list = voices ?? browserSynth()?.getVoices() ?? [];
+  const prefixes = VOICE_LANGS[lang];
+  const matching = list.filter((v) => prefixes.some((p) => v.lang.toLowerCase().startsWith(p)));
+  if (!matching.length) return null;
+  const score = (v: SpeechSynthesisVoice) =>
+    (v.lang.toLowerCase().startsWith(prefixes[0]) ? 4 : 0) +
+    (/natural|neural|online/i.test(v.name) ? 2 : 0) +
+    (/latin/i.test(v.name) ? 1 : 0);
+  return [...matching].sort((a, b) => score(b) - score(a))[0];
+}
+
+browserSynth()?.getVoices();
 
 export function shouldAutoplayFinishedReply(
   previousStreamingConversationId: string | null,
@@ -39,6 +84,12 @@ export function shouldAutoplayFinishedReply(
 }
 
 function teardown(): void {
+  if (browserUtterance) {
+    browserUtterance.onend = null;
+    browserUtterance.onerror = null;
+    browserUtterance = null;
+    browserSynth()?.cancel();
+  }
   if (audio) {
     audio.onended = null;
     audio.onerror = null;
@@ -88,6 +139,35 @@ export const useTtsStore = create<TtsStore>((set, get) => ({
     const mine = token;
     teardown();
     set({ state: 'loading', speakingId: id, error: null, errorId: null });
+
+    const lang = guessLanguage(trimmed);
+    const synth = browserSynth();
+    const voice = synth ? pickBrowserVoice(lang) : null;
+    const serverReady = get().available === true;
+    if (synth && ((voice && (lang === 'sr' || !serverReady)) || !serverReady)) {
+      const u = new SpeechSynthesisUtterance(trimmed);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang;
+      } else {
+        u.lang = lang === 'sr' ? 'sr-Latn-RS' : 'en-US';
+      }
+      browserUtterance = u;
+      u.onend = () => {
+        if (mine !== token) return;
+        browserUtterance = null;
+        set({ state: 'idle', speakingId: null });
+      };
+      u.onerror = (ev) => {
+        if (mine !== token) return;
+        browserUtterance = null;
+        const interrupted = ev.error === 'interrupted' || ev.error === 'canceled';
+        set({ state: 'idle', speakingId: null, error: interrupted ? null : 'Playback failed', errorId: interrupted ? null : id });
+      };
+      set({ state: 'speaking', speakingId: id });
+      synth.speak(u);
+      return;
+    }
 
     const ac = new AbortController();
     controller = ac;
