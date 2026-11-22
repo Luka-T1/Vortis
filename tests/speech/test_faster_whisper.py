@@ -183,3 +183,65 @@ def test_faster_whisper_supported_formats():
         assert "wav" in formats
         assert "mp3" in formats
         assert "webm" in formats
+
+
+def _segment(text, no_speech=0.0, logprob=-0.2):
+    seg = MagicMock()
+    seg.text = text
+    seg.start = 0.0
+    seg.end = 1.0
+    seg.no_speech_prob = no_speech
+    seg.avg_logprob = logprob
+    return seg
+
+
+def _run(segments, language="sr", **backend_kwargs):
+    info = MagicMock()
+    info.language = language
+    info.language_probability = 0.9
+    info.duration = 1.0
+    model = MagicMock()
+    model.transcribe.return_value = (segments, info)
+    with patch("vortis.speech.faster_whisper.WhisperModel", return_value=model):
+        backend = FasterWhisperBackend(
+            model_size="small", device="cpu", **backend_kwargs
+        )
+        return backend.transcribe(b"audio"), model
+
+
+def test_cyrillic_output_is_transliterated():
+    result, _ = _run([_segment(" Џарвис, колико је сати?")])
+    assert result.text == "Džarvis, koliko je sati?"
+
+
+def test_noise_segments_are_dropped():
+    noise = _segment(" ...", no_speech=0.9, logprob=-1.5)
+    result, _ = _run([_segment(" Jarvis"), noise])
+    assert result.text == "Jarvis"
+
+
+def test_stock_hallucination_becomes_empty():
+    result, _ = _run([_segment(" Hvala na gledanju!")])
+    assert result.text == ""
+    assert result.segments == []
+
+
+def test_transcribe_passes_hotwords_language_and_vad():
+    _, model = _run([_segment(" ok")], hotwords="Jarvis", beam_size=1)
+    kwargs = model.transcribe.call_args.kwargs
+    assert kwargs["hotwords"] == "Jarvis"
+    assert kwargs["beam_size"] == 1
+    assert kwargs["vad_filter"] is True
+    assert "language" not in kwargs
+
+
+def test_request_language_overrides_config_language():
+    info = MagicMock()
+    model = MagicMock()
+    model.transcribe.return_value = ([_segment(" hi")], info)
+    with patch("vortis.speech.faster_whisper.WhisperModel", return_value=model):
+        backend = FasterWhisperBackend(
+            model_size="small", device="cpu", language="sr"
+        )
+        backend.transcribe(b"audio", language="en")
+    assert model.transcribe.call_args.kwargs["language"] == "en"

@@ -1442,10 +1442,12 @@ class SpeechConfig:
     """Speech-to-text settings."""
 
     backend: str = "auto"
-    model: str = "base"
+    model: str = "small"
     language: str = ""
     device: str = "auto"
     compute_type: str = "float16"
+    hotwords: str = "Jarvis Džarvis Vortis"
+    beam_size: int = 2
     tts_backend: str = "kokoro"
     voice_id: str = "bm_george"
     voice_speed: float = 1.0

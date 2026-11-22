@@ -6,7 +6,7 @@ from vortis.core.config import JarvisConfig, SpeechConfig
 def test_speech_config_defaults():
     cfg = SpeechConfig()
     assert cfg.backend == "auto"
-    assert cfg.model == "base"
+    assert cfg.model == "small"
     assert cfg.language == ""
     assert cfg.device == "auto"
     assert cfg.compute_type == "float16"

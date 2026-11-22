@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from vortis.core.registry import SpeechRegistry
 from vortis.speech._stubs import Segment, SpeechBackend, TranscriptionResult
+from vortis.speech.text import is_hallucination, to_latin
 
 try:
     from faster_whisper import WhisperModel
@@ -22,6 +23,19 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+_NO_SPEECH_THRESHOLD = 0.6
+_LOGPROB_THRESHOLD = -1.0
+
+
+def _number(value: object, default: float) -> float:
+    return float(value) if isinstance(value, (int, float)) else default
+
+
+def _is_noise(segment: object) -> bool:
+    no_speech = _number(getattr(segment, "no_speech_prob", 0.0), 0.0)
+    logprob = _number(getattr(segment, "avg_logprob", 0.0), 0.0)
+    return no_speech > _NO_SPEECH_THRESHOLD and logprob < _LOGPROB_THRESHOLD
+
 
 @SpeechRegistry.register("faster-whisper")
 class FasterWhisperBackend(SpeechBackend):
@@ -34,10 +48,16 @@ class FasterWhisperBackend(SpeechBackend):
         model_size: str = "base",
         device: str = "auto",
         compute_type: str = "float16",
+        language: str = "",
+        hotwords: str = "",
+        beam_size: int = 5,
     ) -> None:
         self._model_size = model_size
         self._device = device
         self._compute_type = compute_type
+        self._language = language or None
+        self._hotwords = hotwords or None
+        self._beam_size = max(1, beam_size)
         self._model: Optional[WhisperModel] = None
         self._last_error: Optional[str] = None
 
@@ -112,12 +132,19 @@ class FasterWhisperBackend(SpeechBackend):
                 with tmp:
                     tmp.write(audio)
 
-                kwargs = {}
-                if language:
-                    kwargs["language"] = language
+                kwargs: dict = {
+                    "beam_size": self._beam_size,
+                    "vad_filter": True,
+                    "condition_on_previous_text": False,
+                }
+                lang = language or self._language
+                if lang:
+                    kwargs["language"] = lang
+                if self._hotwords:
+                    kwargs["hotwords"] = self._hotwords
 
                 segments_iter, info = model.transcribe(tmp.name, **kwargs)
-                segments_list = list(segments_iter)
+                segments_list = [s for s in segments_iter if not _is_noise(s)]
             finally:
                 try:
                     os.unlink(tmp.name)
@@ -131,10 +158,13 @@ class FasterWhisperBackend(SpeechBackend):
             self._last_error = str(exc)
             raise
 
-        text = "".join(seg.text for seg in segments_list).strip()
+        text = to_latin("".join(seg.text for seg in segments_list).strip())
+        if is_hallucination(text):
+            text = ""
+            segments_list = []
         segments = [
             Segment(
-                text=seg.text.strip(),
+                text=to_latin(seg.text.strip()),
                 start=seg.start,
                 end=seg.end,
                 confidence=None,
