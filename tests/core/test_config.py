@@ -562,3 +562,13 @@ def test_mining_package_is_gone():
     import importlib.util
 
     assert importlib.util.find_spec("vortis.mining") is None
+
+
+def test_generated_configs_use_personal_security_profile():
+    from vortis.core.config import generate_minimal_toml
+
+    for toml_text in (
+        generate_minimal_toml(HardwareInfo(), engine="ollama"),
+        generate_default_toml(HardwareInfo(), engine="ollama"),
+    ):
+        assert tomllib.loads(toml_text)["security"]["profile"] == "personal"

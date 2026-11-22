@@ -1937,6 +1937,9 @@ default_agent = "simple"
 
 [tools]
 enabled = ["code_interpreter", "web_search", "file_read", "shell_exec"]
+
+[security]
+profile = "personal"
 """
 
 
@@ -2167,6 +2170,7 @@ default_agent = "simple"
 # phone_number = ""       # Or set SIGNAL_PHONE_NUMBER env var
 
 [security]
+profile = "personal"
 enabled = true
 mode = "warn"
 scan_input = true
