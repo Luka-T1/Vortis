@@ -54,6 +54,11 @@ except ImportError:
     pass
 
 try:
+    import vortis.agents.claude_account  # noqa: F401
+except ImportError:
+    pass
+
+try:
     import vortis.agents.opencode  # noqa: F401
 except ImportError:
     pass

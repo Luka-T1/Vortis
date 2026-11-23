@@ -1438,6 +1438,17 @@ class OperatorsConfig:
 
 
 @dataclass(slots=True)
+class ClaudeConfig:
+    """Claude through the user's signed-in Claude account (``claude_account`` agent)."""
+
+    model: str = "opus"
+    fallback_agent: str = "orchestrator"
+    max_turns: int = 20
+    timeout: int = 240
+    web: bool = True
+
+
+@dataclass(slots=True)
 class SpeechConfig:
     """Speech-to-text settings."""
 
@@ -1608,6 +1619,7 @@ class JarvisConfig:
     a2a: A2AConfig = field(default_factory=A2AConfig)
     operators: OperatorsConfig = field(default_factory=OperatorsConfig)
     speech: SpeechConfig = field(default_factory=SpeechConfig)
+    claude: ClaudeConfig = field(default_factory=ClaudeConfig)
     optimize: OptimizeConfig = field(default_factory=OptimizeConfig)
     agent_manager: AgentManagerConfig = field(default_factory=AgentManagerConfig)
     memory_files: MemoryFilesConfig = field(default_factory=MemoryFilesConfig)
@@ -1867,6 +1879,7 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
             "a2a",
             "operators",
             "speech",
+            "claude",
             "optimize",
             "agent_manager",
             "digest",
@@ -2211,6 +2224,7 @@ __all__ = [
     "A2AConfig",
     "AgentConfig",
     "AgentManagerConfig",
+    "ClaudeConfig",
     "OperatorsConfig",
     "AgentLearningConfig",
     "BrowserConfig",

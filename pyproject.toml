@@ -207,6 +207,7 @@ exclude = [
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/vortis/agents/claude_code_runner/index.mjs" = "_node_modules/claude_code_runner/index.mjs"
+"src/vortis/agents/claude_code_runner/account.mjs" = "_node_modules/claude_code_runner/account.mjs"
 "src/vortis/agents/claude_code_runner/package.json" = "_node_modules/claude_code_runner/package.json"
 "src/vortis/channels/whatsapp_baileys_bridge" = "_node_modules/whatsapp_baileys_bridge"
 "scripts/install" = "_install_scripts"

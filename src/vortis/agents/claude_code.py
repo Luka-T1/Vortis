@@ -37,6 +37,62 @@ if not _RUNNER_SRC.exists():
     )
 
 
+RUNNER_FILES = ("package.json", "index.mjs", "account.mjs")
+
+
+def ensure_runner() -> tuple[str, Path]:
+    """Copy the bundled runner to ``~/.vortis/claude_code_runner/``
+    and install the Agent SDK when it is missing or outdated.
+
+    Returns ``(node_executable, runner_dir)``.
+
+    Raises :class:`RuntimeError` if Node.js or npm is not available.
+    """
+    node_path = shutil.which("node")
+    if node_path is None:
+        raise RuntimeError(
+            "ClaudeCodeAgent requires Node.js (>=22). "
+            "Install it from https://nodejs.org/ or via your package manager."
+        )
+    npm_path = shutil.which("npm")
+    if npm_path is None:
+        raise RuntimeError(
+            "ClaudeCodeAgent requires npm. Install Node.js (>=22) with npm."
+        )
+
+    dest = get_config_dir() / "claude_code_runner"
+    dest.mkdir(parents=True, exist_ok=True)
+
+    for name in RUNNER_FILES:
+        source = _RUNNER_SRC / name
+        if source.is_file():
+            shutil.copy2(source, dest / name)
+
+    package = json.loads((dest / "package.json").read_text(encoding="utf-8"))
+    expected_sdk = package["dependencies"]["@anthropic-ai/claude-agent-sdk"]
+    installed_package = (
+        dest / "node_modules" / "@anthropic-ai" / "claude-agent-sdk" / "package.json"
+    )
+    try:
+        installed_sdk = json.loads(installed_package.read_text(encoding="utf-8")).get(
+            "version"
+        )
+    except (OSError, json.JSONDecodeError):
+        installed_sdk = None
+
+    if installed_sdk != expected_sdk:
+        logger.info("Installing claude_code_runner dependencies...")
+        subprocess.run(
+            [npm_path, "install", "--omit=dev", "--include=optional"],
+            cwd=str(dest),
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+
+    return node_path, dest
+
+
 @AgentRegistry.register("claude_code")
 class ClaudeCodeAgent(BaseAgent):
     """Agent that wraps the Claude Agent SDK via a Node.js subprocess.
@@ -91,62 +147,10 @@ class ClaudeCodeAgent(BaseAgent):
         self._timeout = timeout
         self._node_executable = "node"
 
-
     def _ensure_runner(self) -> Path:
-        """Copy the bundled runner to ``~/.vortis/claude_code_runner/``
-        and install the Agent SDK when it is missing or outdated.
-
-        Returns the path to the runner directory.
-
-        Raises :class:`RuntimeError` if Node.js or npm is not available.
-        """
-        node_path = shutil.which("node")
-        if node_path is None:
-            raise RuntimeError(
-                "ClaudeCodeAgent requires Node.js (>=22). "
-                "Install it from https://nodejs.org/ or via your package manager."
-            )
-        npm_path = shutil.which("npm")
-        if npm_path is None:
-            raise RuntimeError(
-                "ClaudeCodeAgent requires npm. Install Node.js (>=22) with npm."
-            )
-        self._node_executable = node_path
-
-        dest = get_config_dir() / "claude_code_runner"
-        dest.mkdir(parents=True, exist_ok=True)
-
-        for name in ("package.json", "index.mjs"):
-            shutil.copy2(_RUNNER_SRC / name, dest / name)
-
-        package = json.loads((dest / "package.json").read_text(encoding="utf-8"))
-        expected_sdk = package["dependencies"]["@anthropic-ai/claude-agent-sdk"]
-        installed_package = (
-            dest
-            / "node_modules"
-            / "@anthropic-ai"
-            / "claude-agent-sdk"
-            / "package.json"
-        )
-        try:
-            installed_sdk = json.loads(
-                installed_package.read_text(encoding="utf-8")
-            ).get("version")
-        except (OSError, json.JSONDecodeError):
-            installed_sdk = None
-
-        if installed_sdk != expected_sdk:
-            logger.info("Installing claude_code_runner dependencies...")
-            subprocess.run(
-                [npm_path, "install", "--omit=dev", "--include=optional"],
-                cwd=str(dest),
-                check=True,
-                capture_output=True,
-                timeout=120,
-            )
-
+        """Prepare the bundled Node.js runner and return its directory."""
+        self._node_executable, dest = ensure_runner()
         return dest
-
 
     def run(
         self,
@@ -216,7 +220,6 @@ class ClaudeCodeAgent(BaseAgent):
             metadata=metadata,
         )
 
-
     @staticmethod
     def _parse_output(
         stdout: str,
@@ -254,4 +257,4 @@ class ClaudeCodeAgent(BaseAgent):
         return content, tool_results, metadata
 
 
-__all__ = ["ClaudeCodeAgent"]
+__all__ = ["ClaudeCodeAgent", "ensure_runner"]
