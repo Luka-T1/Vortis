@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { VoiceOrb } from '../components/Hud/VoiceOrb';
 import { HudBackdrop } from '../components/Hud/HudBackdrop';
-import { DisplayView, type DisplayItem } from '../components/Display/DisplayView';
+import { DisplayView, hasContent, type DisplayItem } from '../components/Display/DisplayView';
 import { apiFetch } from '../lib/api';
 import { useHudEvents } from '../lib/hud-api';
 
@@ -35,7 +35,7 @@ export function DisplayPage() {
     if (ev.type !== 'display_push') return;
     const next = ev.data as unknown as DisplayItem;
     if (!accepts(next.target)) return;
-    setItem(next.markdown || next.chart || next.title ? next : null);
+    setItem(hasContent(next) ? next : null);
   });
 
   return (

@@ -163,8 +163,12 @@ export function gestureConfirmAllowed(): boolean {
 }
 
 export async function pushToDisplay(body: {
+  id?: string;
   title?: string;
   markdown?: string;
+  chart?: unknown;
+  simulation?: unknown;
+  values?: Record<string, number>;
   target?: string;
 }): Promise<void> {
   const res = await apiFetch('/v1/display', {

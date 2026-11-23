@@ -1,5 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { SimulationSpec } from '../../lib/simulation';
+import { SimulationView } from './SimulationView';
 import {
   Area,
   AreaChart,
@@ -33,6 +35,8 @@ export interface DisplayItem {
   title: string;
   markdown: string;
   chart: DisplayChart | null;
+  simulation?: SimulationSpec | null;
+  values?: Record<string, number>;
   target: string;
   source?: string;
   at: number;
@@ -117,11 +121,26 @@ function ChartView({ chart }: { chart: DisplayChart }) {
   );
 }
 
-export function DisplayView({ item, large = false }: { item: DisplayItem; large?: boolean }) {
+export function hasContent(item: DisplayItem): boolean {
+  return Boolean(item.markdown || item.chart || item.simulation || item.title);
+}
+
+export function DisplayView({
+  item,
+  large = false,
+  showTitle = true,
+  onValues,
+}: {
+  item: DisplayItem;
+  large?: boolean;
+  showTitle?: boolean;
+  onValues?: (values: Record<string, number>) => void;
+}) {
   return (
     <div className={`w-full flex flex-col gap-4 ${large ? 'text-2xl' : 'text-base'}`} style={{ color: 'var(--color-text)' }}>
-      {item.title && <h1 className={`${large ? 'text-5xl' : 'text-2xl'} font-semibold`} style={{ color: 'var(--color-accent)' }}>{item.title}</h1>}
+      {showTitle && item.title && <h1 className={`${large ? 'text-5xl' : 'text-2xl'} font-semibold`} style={{ color: 'var(--color-accent)' }}>{item.title}</h1>}
       {item.chart && <ChartView chart={item.chart} />}
+      {item.simulation && <SimulationView spec={item.simulation} values={item.values} large={large} onValues={onValues} />}
       {item.markdown && (
         <div className="prose-display max-w-none leading-relaxed">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.markdown}</ReactMarkdown>
