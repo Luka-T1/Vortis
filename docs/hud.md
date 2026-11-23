@@ -118,3 +118,72 @@ the code, tick "Ovo je TV"); afterwards it shows whatever is pushed to it:
 - the "send to TV" gesture or voice command
 
 `GET /v1/display/last?target=tv` returns the item currently on screen.
+
+## Workspace windows
+
+Everything the assistant shows on the PC opens as a window on the HUD
+workspace instead of covering the screen. Windows can be dragged by their
+title bar, resized from the corner, maximized (double-click the bar) and
+closed. Each window has TV and phone buttons that mirror it to that screen.
+While a request runs, a "Radim…" card in the corner lists every tool step and
+its outcome. Camera, devices, gestures and the full activity log live in the
+side panel (right-most header button).
+
+## Simulations
+
+Say "Jarvis, simuliraj kosi hitac" or "simuliraj otplatu kredita od
+10.000 € na 5 godina". The assistant calls the `simulate` tool with a small
+declarative model; a window opens with a slider for every parameter, a live
+graph and the key numbers (peak, final value, where the peak happens).
+"Zadrži za poređenje" freezes the current curve as a dashed line so a change
+can be compared against it.
+
+A model is one of three modes:
+
+| mode | meaning |
+|---|---|
+| `function` | `series` are plain formulas of `x` and the parameters |
+| `ode` | each `state` has a `rate` (its derivative); integrated with RK4 |
+| `iterate` | each `state` has a `next` value; `x` counts the steps |
+
+Expressions use numbers, parameter and variable names, `+ - * / ^ %`,
+comparisons, `&& || !`, `pi`, `e` and a fixed set of math functions
+(`sin`, `exp`, `ln`, `sqrt`, `min`, `max`, `clamp`, `if(cond, a, b)` and
+others). Nothing else is accepted, so a model can never run code. The server
+validates the model and computes the numbers the assistant explains; the
+browser re-runs it on every slider move, and a mirrored TV follows the
+sliders.
+
+`POST /v1/display` accepts the same model as `simulation`, slider values as
+`values`, and an `id`; pushing again with the same `id` updates the open
+window instead of opening a new one.
+
+## Claude on your own account
+
+Set the server agent to `claude_account` to answer with Claude through the
+Claude account that Claude Code is signed in with on this computer. No API
+key is used; requests count against that account's plan, which is meant for
+your personal use.
+
+```toml
+[server]
+agent = "claude_account"
+
+[claude]
+model = "opus"
+fallback_agent = "orchestrator"
+max_turns = 20
+timeout = 240
+web = true
+```
+
+Requirements: Node.js 22 or newer and a signed-in Claude Code (`claude`,
+then `/login`). Vortis tools reach Claude through a local endpoint bound to
+`127.0.0.1` with a per-run token, and still pass through the normal
+capability checks and confirmations. Claude's own file, shell and editing
+tools are disabled; `web = true` allows web search and page fetches.
+
+When Claude cannot be reached (offline, signed out, Node.js missing) the
+request is answered by `fallback_agent` on the local engine, so Vortis keeps
+working without internet. After a failure Claude is retried after 30 seconds,
+or after 5 minutes when the sign-in failed.
