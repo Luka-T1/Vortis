@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Camera, CameraOff, Hand, Maximize2, MessageSquare, Mic, MicOff, Send, ShieldCheck, Tv, X } from 'lucide-react';
+import { Activity, Camera, CameraOff, Hand, Maximize2, MessageSquare, Mic, MicOff, PanelRight, Send, ShieldCheck, X } from 'lucide-react';
 import { VoiceOrb, type OrbState } from '../components/Hud/VoiceOrb';
 import { HudBackdrop } from '../components/Hud/HudBackdrop';
 import { ConfirmationGate } from '../components/ConfirmationGate';
@@ -34,15 +34,31 @@ import { useHandsFree } from '../hooks/useHandsFree';
 import { useTts } from '../hooks/useTts';
 import { useAppStore } from '../lib/store';
 import { checkHealth } from '../lib/api';
-import { DisplayView, type DisplayItem } from '../components/Display/DisplayView';
+import { hasContent, type DisplayItem } from '../components/Display/DisplayView';
+import { restack, Workspace, type WorkspacePanel } from '../components/Hud/Workspace';
 
-const PANELS = ['activity', 'devices', 'gestures'] as const;
+const PANELS = ['camera', 'activity', 'devices', 'gestures'] as const;
 type Panel = (typeof PANELS)[number];
 const PANEL_TITLES: Record<Panel, string> = {
+  camera: 'Kamera',
   activity: 'Aktivnost',
   devices: 'Uređaji',
   gestures: 'Gestovi',
 };
+
+const TOOL_LABELS: Record<string, string> = {
+  simulate: 'Pravim simulaciju',
+  show_on_screen: 'Prikazujem na ekranu',
+  calculator: 'Računam',
+  web_search: 'Pretražujem web',
+  WebSearch: 'Pretražujem web',
+  WebFetch: 'Čitam stranicu',
+  think: 'Razmišljam',
+  memory_search: 'Pretražujem sećanje',
+  memory_store: 'Pamtim',
+};
+
+const MAX_PANELS = 6;
 
 const OUTCOME_STYLE: Record<ToolOutcome, { label: string; color: string }> = {
   running: { label: 'radi…', color: 'var(--vx-cyan)' },
@@ -52,14 +68,14 @@ const OUTCOME_STYLE: Record<ToolOutcome, { label: string; color: string }> = {
 };
 
 const EXAMPLES = [
-  'Koliko je sati?',
+  'Simuliraj kosi hitac',
+  'Simuliraj otplatu kredita od 10.000 € na 5 godina',
+  'Pokaži kako se hladi šolja kafe',
+  'Uporedi rast uloga uz 5% i 8% kamate',
+  'Simuliraj klatno sa trenjem',
+  'Kako raste populacija bakterija?',
   'Izračunaj 17 × 23',
-  'Objasni mi Pitagorinu teoremu',
-  'Napravi plan za sutra',
-  'Šta sve možeš da uradiš?',
   'Pošalji na TV',
-  'Uvećaj odgovor',
-  'Prevedi „dobro jutro” na engleski',
 ];
 
 const VOICE_STATUS = {
@@ -84,7 +100,10 @@ export function HudPage() {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [feed, setFeed] = useState<HudToolCall[]>([]);
-  const [panel, setPanel] = useState<Panel>('activity');
+  const [panel, setPanel] = useState<Panel>('camera');
+  const [drawer, setDrawer] = useState(false);
+  const [askAt, setAskAt] = useState(0);
+  const [panels, setPanels] = useState<WorkspacePanel[]>([]);
   const [clock, setClock] = useState(() => new Date());
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -99,10 +118,22 @@ export function HudPage() {
   const [allowGestureConfirm, setAllowGestureConfirm] = useState(gestureConfirmAllowed);
   const abortRef = useRef<AbortController | null>(null);
   const [bindings, setBindings] = useState<GestureBindings>(loadBindings);
-  const [expanded, setExpanded] = useState(false);
-  const [shown, setShown] = useState<DisplayItem | null>(null);
   const [notice, setNotice] = useState('');
   const lastExchange = useRef<{ q: string; a: string }>({ q: '', a: '' });
+
+  const openPanel = useCallback((item: DisplayItem) => {
+    setPanels((prev) => {
+      const top = Math.max(0, ...prev.map((p) => p.z)) + 1;
+      const existing = prev.find((p) => p.item.id === item.id);
+      if (existing) return restack(prev.map((p) => (p === existing ? { ...p, item, z: top } : p)));
+      const fresh: WorkspacePanel = { item, x: NaN, y: NaN, w: 0, h: 0, z: top, maximized: false, mirror: '' };
+      return restack([...prev, fresh].slice(-MAX_PANELS));
+    });
+  }, []);
+
+  const topPanel = panels.length ? panels.reduce((a, b) => (b.z > a.z ? b : a)) : null;
+  const topPanelRef = useRef(topPanel);
+  topPanelRef.current = topPanel;
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -118,7 +149,7 @@ export function HudPage() {
   useHudEvents((ev) => {
     if (ev.type === 'display_push') {
       const item = ev.data as unknown as DisplayItem;
-      if (item.target === 'all' || item.target === 'pc') setShown(item.markdown || item.chart || item.title ? item : null);
+      if ((item.target === 'all' || item.target === 'pc') && hasContent(item)) openPanel(item);
       return;
     }
     if (ev.type !== 'tool_call_start' && ev.type !== 'tool_call_end') return;
@@ -161,6 +192,7 @@ export function HudPage() {
       setError('');
       setHeard(q);
       setReply('');
+      setAskAt(Date.now());
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
@@ -220,8 +252,6 @@ export function HudPage() {
   pointerRef.current = pointer;
   const pointerModeRef = useRef(pointerMode);
   pointerModeRef.current = pointerMode;
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
   const bindingsRef = useRef(bindings);
   bindingsRef.current = bindings;
 
@@ -276,28 +306,56 @@ export function HudPage() {
           toggleFullscreen();
           break;
         case 'send_to_tv': {
+          const top = topPanelRef.current;
           const { q, a } = lastExchange.current;
-          if (!a) {
-            setNotice('Nema odgovora za slanje na TV.');
+          if (!top && !a) {
+            setNotice('Nema ničeg za slanje na TV.');
             break;
           }
-          pushToDisplay({ title: q.slice(0, 200), markdown: a.slice(0, 20000), target: 'tv' })
-            .then(() => setNotice('Poslato na TV.'))
+          const body = top
+            ? {
+                id: top.item.id,
+                title: top.item.title,
+                markdown: top.item.markdown,
+                chart: top.item.chart ?? undefined,
+                simulation: top.item.simulation ?? undefined,
+                values: top.item.values,
+              }
+            : { title: q.slice(0, 200), markdown: a.slice(0, 20000) };
+          pushToDisplay({ ...body, target: 'tv' })
+            .then(() => {
+              setNotice('Poslato na TV.');
+              if (top) setPanels((prev) => prev.map((p) => (p.item.id === top.item.id ? { ...p, mirror: 'tv' } : p)));
+            })
             .catch((e: Error) => setNotice(e.message));
           break;
         }
-        case 'expand':
-          if (lastExchange.current.a || shownRef.current) setExpanded(true);
+        case 'expand': {
+          const top = topPanelRef.current;
+          if (top) {
+            setPanels((prev) => prev.map((p) => (p.item.id === top.item.id ? { ...p, maximized: true } : p)));
+          } else if (lastExchange.current.a) {
+            openPanel({
+              id: `reply-${Date.now()}`,
+              title: lastExchange.current.q.slice(0, 200),
+              markdown: lastExchange.current.a,
+              chart: null,
+              target: 'pc',
+              at: Date.now(),
+            });
+          }
           break;
-        case 'dismiss':
-          setExpanded(false);
-          setShown(null);
+        }
+        case 'dismiss': {
+          const top = topPanelRef.current;
+          if (top) setPanels((prev) => prev.filter((p) => p.item.id !== top.item.id));
           break;
+        }
         default:
           break;
       }
     },
-    [toggleListen, stopAll, toggleFullscreen],
+    [toggleListen, stopAll, toggleFullscreen, openPanel],
   );
   runActionRef.current = runAction;
 
@@ -384,12 +442,63 @@ export function HudPage() {
     ? `${GESTURE_LABELS[recentGesture.g]} → ${ACTION_LABELS[recentGesture.action]}`
     : notice || (pointerMode ? 'Vazdušni miš: nišani kažiprstom, štipni za klik' : '');
 
+  const steps = askAt ? feed.filter((f) => f.at >= askAt).slice().reverse() : [];
+  const lastStepAt = steps.length ? Math.max(...steps.map((f) => f.at)) : 0;
+  const working = phase !== 'idle' || (steps.length > 0 && clock.getTime() - lastStepAt < 6000);
+  const docked = panels.length > 0;
+
+  const cameraPanel = (
+    <div className="flex flex-col gap-3">
+      <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '4 / 3', background: '#02070d', border: '1px solid var(--vx-line)' }}>
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)', opacity: cameraOn ? 0.55 : 0 }} />
+        <HandOverlay frame={frame} className="absolute inset-0" />
+        {!cameraOn && (
+          <button
+            onClick={startCamera}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs cursor-pointer px-4 text-center"
+            style={{ color: 'var(--vx-muted)' }}
+          >
+            <Camera size={26} style={{ color: 'var(--vx-cyan)' }} />
+            Uključi kameru za kontrolu pokretima
+            <span style={{ color: 'var(--vx-dim)' }}>Slika ne napušta ovaj uređaj.</span>
+          </button>
+        )}
+      </div>
+      {cameraOn && frame && (
+        <div className="text-xs" style={{ color: 'var(--vx-dim)' }}>
+          <Hand size={12} className="inline mr-1" />
+          {frame.hands.length} ruk{frame.hands.length === 1 ? 'a' : 'e'} · {frame.fps} fps
+        </div>
+      )}
+      {cameraError && <div className="text-xs" style={{ color: 'var(--vx-red)' }}>{cameraError}</div>}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex justify-between text-[11px] tracking-widest uppercase" style={{ color: 'var(--vx-dim)' }}>
+          <span>Mikrofon</span>
+          <span>{voice.enabled ? 'aktivan' : 'isključen'}</span>
+        </div>
+        <div className="vx-meter"><div style={{ width: `${Math.round(voice.level * 100)}%` }} /></div>
+      </div>
+      {(voice.error || (voice.available === false && voice.reason)) && (
+        <div className="text-xs leading-relaxed" style={{ color: 'var(--vx-amber)' }}>
+          {voice.error || voice.reason}
+        </div>
+      )}
+      <button
+        className={`vx-btn self-start${allowGestureConfirm ? ' is-on' : ''}`}
+        onClick={toggleGestureConfirm}
+        title={allowGestureConfirm ? 'Palac gore potvrđuje akcije' : 'Palac gore NE potvrđuje (samo dugme)'}
+      >
+        <ShieldCheck size={14} /> {allowGestureConfirm ? 'Palac gore potvrđuje' : 'Potvrda samo dugmetom'}
+      </button>
+    </div>
+  );
+
   return (
     <div className="vx-root relative flex flex-col h-full w-full overflow-hidden">
       <HudBackdrop />
       <ConfirmationGate />
 
-      <header className="flex items-center gap-3 px-5 md:px-8 pt-4 pb-3 shrink-0">
+      <header className="flex items-center gap-3 px-5 md:px-8 pt-4 pb-3 shrink-0 relative z-20">
         <span className="vx-brand-dot" aria-hidden="true" />
         <span className="vx-brand">V.O.R.T.I.S</span>
         <span className={`vx-pill hidden md:inline-flex ${online === false ? 'vx-pill--warn' : ''}`}>
@@ -424,85 +533,70 @@ export function HudPage() {
         >
           {cameraOn ? <Camera size={16} /> : <CameraOff size={16} />}
         </button>
-        <button
-          className={`vx-btn hidden sm:inline-flex${allowGestureConfirm ? ' is-on' : ''}`}
-          onClick={toggleGestureConfirm}
-          title={allowGestureConfirm ? 'Palac gore potvrđuje akcije' : 'Palac gore NE potvrđuje (samo dugme)'}
-          aria-label="Potvrda palcem"
-        >
-          <ShieldCheck size={16} />
-        </button>
         <button className="vx-btn hidden sm:inline-flex" onClick={toggleFullscreen} title="Ceo ekran" aria-label="Ceo ekran">
           <Maximize2 size={16} />
+        </button>
+        <button
+          className={`vx-btn${drawer ? ' is-on' : ''}`}
+          onClick={() => setDrawer((v) => !v)}
+          title="Kamera, uređaji, gestovi i aktivnost"
+          aria-label="Bočni panel"
+          aria-expanded={drawer}
+        >
+          <PanelRight size={16} />
         </button>
         <button className="vx-btn" onClick={() => navigate('/')} title="Klasičan chat" aria-label="Chat">
           <MessageSquare size={16} />
         </button>
       </header>
 
-      <div className="flex-1 min-h-0 vx-grid px-5 md:px-8 pb-3">
-        <section className="vx-panel">
-          <div className="vx-panel-head">
-            <Hand size={14} /> Praćenje ruku
-            {cameraOn && frame && (
-              <span className="ml-auto normal-case tracking-normal" style={{ color: 'var(--vx-dim)' }}>
-                {frame.hands.length} ruk{frame.hands.length === 1 ? 'a' : 'e'} · {frame.fps} fps
-              </span>
-            )}
-          </div>
-          <div className="vx-panel-body flex flex-col gap-3">
-            <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '4 / 3', background: '#02070d', border: '1px solid var(--vx-line)' }}>
-              <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)', opacity: cameraOn ? 0.55 : 0 }} />
-              <HandOverlay frame={frame} className="absolute inset-0" />
-              {!cameraOn && (
-                <button
-                  onClick={startCamera}
-                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs cursor-pointer px-4 text-center"
-                  style={{ color: 'var(--vx-muted)' }}
-                >
-                  <Camera size={26} style={{ color: 'var(--vx-cyan)' }} />
-                  Uključi kameru za kontrolu pokretima
-                  <span style={{ color: 'var(--vx-dim)' }}>Slika ne napušta ovaj uređaj.</span>
-                </button>
+      <div className="flex-1 min-h-0 relative px-3 md:px-5">
+        <Workspace panels={panels} setPanels={setPanels} onNotice={setNotice}>
+          <div className={`vx-stage${docked ? ' is-docked' : ''}`}>
+            <div className="vx-heard" style={{ visibility: heard ? 'visible' : 'hidden' }}>
+              <b>Hej Jarvis,</b>
+              <span>{heard || '…'}</span>
+            </div>
+            <button onClick={toggleListen} className="cursor-pointer rounded-full shrink-0" title="Klikni, reci „Jarvis” ili pokaži otvoren dlan">
+              <VoiceOrb state={orbState} level={voice.level} size={docked ? 92 : 280} label={!docked} />
+            </button>
+            <div className="vx-stage__text">
+              {reply && <div className="vx-reply">{reply}</div>}
+              {error && <div className="text-sm" style={{ color: 'var(--vx-red)' }}>{error}</div>}
+              {!heard && !reply && !error && !docked && (
+                <div className="vx-heading text-2xl md:text-3xl">
+                  Reci <span className="vx-gradient-text">„Jarvis, simuliraj…”</span> i gledaj kako radi.
+                </div>
               )}
             </div>
-            {cameraError && <div className="text-xs" style={{ color: 'var(--vx-red)' }}>{cameraError}</div>}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-[11px] tracking-widest uppercase" style={{ color: 'var(--vx-dim)' }}>
-                <span>Mikrofon</span>
-                <span>{voice.enabled ? 'aktivan' : 'isključen'}</span>
-              </div>
-              <div className="vx-meter"><div style={{ width: `${Math.round(voice.level * 100)}%` }} /></div>
+          </div>
+        </Workspace>
+
+        {working && (
+          <aside className="vx-working" aria-live="polite">
+            <div className="vx-working__head">
+              <span className={`vx-working__pulse${phase !== 'idle' ? ' is-active' : ''}`} />
+              {phase !== 'idle' ? 'Radim…' : 'Gotovo'}
             </div>
-            <div className="text-xs min-h-5" style={{ color: 'var(--vx-cyan)' }}>{statusLine}</div>
-            {(voice.error || (voice.available === false && voice.reason)) && (
-              <div className="text-xs leading-relaxed" style={{ color: 'var(--vx-amber)' }}>
-                {voice.error || voice.reason}
-              </div>
-            )}
-          </div>
-        </section>
+            <ol className="vx-working__steps">
+              {phase === 'thinking' && steps.length === 0 && <li className="is-running">Razmišljam o zadatku</li>}
+              {steps.map((f) => (
+                <li key={f.id} className={`is-${f.outcome}`}>
+                  <span>{TOOL_LABELS[f.tool] ?? f.tool}</span>
+                  <span style={{ color: OUTCOME_STYLE[f.outcome].color }}>
+                    {OUTCOME_STYLE[f.outcome].label}
+                    {f.latency ? ` · ${f.latency.toFixed(1)}s` : ''}
+                  </span>
+                </li>
+              ))}
+              {phase === 'generating' && <li className="is-running">Pišem odgovor</li>}
+            </ol>
+          </aside>
+        )}
 
-        <section className="flex flex-col items-center justify-center gap-6 min-h-0 overflow-hidden py-2">
-          <div className="vx-heard" style={{ visibility: heard ? 'visible' : 'hidden' }}>
-            <b>Hej Jarvis,</b>
-            <span>{heard || '…'}</span>
-          </div>
-          <button onClick={toggleListen} className="cursor-pointer rounded-full" title="Klikni, reci „Jarvis” ili pokaži otvoren dlan">
-            <VoiceOrb state={orbState} level={voice.level} size={300} />
-          </button>
-          <div className="w-full max-w-2xl text-center flex flex-col gap-3 min-h-0 overflow-auto mt-6 px-2">
-            {reply && <div className="vx-reply">{reply}</div>}
-            {error && <div className="text-sm" style={{ color: 'var(--vx-red)' }}>{error}</div>}
-            {!heard && !reply && !error && (
-              <div className="vx-heading text-2xl md:text-3xl">
-                Reci <span className="vx-gradient-text">„Jarvis”</span> i pitaj šta god želiš.
-              </div>
-            )}
-          </div>
-        </section>
+        {statusLine && <div className="vx-toast">{statusLine}</div>}
 
-        <section className="vx-panel">
+        <aside className={`vx-drawer${drawer ? ' is-open' : ''}`} aria-hidden={!drawer}>
           <div className="vx-panel-head" role="tablist">
             {PANELS.map((p) => (
               <button
@@ -515,11 +609,20 @@ export function HudPage() {
                 {PANEL_TITLES[p]}
               </button>
             ))}
+            <button className="vx-icon-btn ml-auto" onClick={() => setDrawer(false)} aria-label="Zatvori bočni panel">
+              <X size={14} />
+            </button>
           </div>
           <div className="vx-panel-body">
+            <div hidden={panel !== 'camera'}>{cameraPanel}</div>
             {panel === 'activity' && (
               <ul className="flex flex-col gap-2 text-xs">
-                {feed.length === 0 && <li style={{ color: 'var(--vx-dim)' }}>Još nema poziva alata.</li>}
+                {feed.length === 0 && (
+                  <li style={{ color: 'var(--vx-dim)' }}>
+                    <Activity size={12} className="inline mr-1" />
+                    Još nema poziva alata.
+                  </li>
+                )}
                 {feed.map((f) => (
                   <li key={f.id} className="flex items-center gap-2">
                     <span className="vx-feed-dot" style={{ color: OUTCOME_STYLE[f.outcome].color }} />
@@ -561,10 +664,10 @@ export function HudPage() {
               </ul>
             )}
           </div>
-        </section>
+        </aside>
       </div>
 
-      <div className="vx-marquee px-5 md:px-8 pb-3 shrink-0">
+      <div className="vx-marquee px-5 md:px-8 pb-3 pt-2 shrink-0 relative z-10">
         <div className="vx-marquee__track">
           {[...EXAMPLES, ...EXAMPLES].map((q, i) => (
             <button key={i} className="vx-chip" onClick={() => void ask(q)} tabIndex={i < EXAMPLES.length ? 0 : -1}>
@@ -575,7 +678,7 @@ export function HudPage() {
       </div>
 
       <form
-        className="flex items-center gap-3 px-5 md:px-8 pb-5 shrink-0"
+        className="flex items-center gap-3 px-5 md:px-8 pb-5 shrink-0 relative z-10"
         onSubmit={(e) => {
           e.preventDefault();
           void ask(input);
@@ -596,7 +699,7 @@ export function HudPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pitaj Jarvisa…"
+          placeholder="Pitaj Jarvisa ili reci „simuliraj…”"
           className="vx-input"
           aria-label="Pitanje"
         />
@@ -605,24 +708,6 @@ export function HudPage() {
         </button>
       </form>
 
-      {(expanded || shown) && (
-        <div className="fixed inset-0 z-40 overflow-auto px-[6vw] py-[6vh]" style={{ background: 'rgba(3, 10, 18, 0.95)' }}>
-          <div className="flex justify-end gap-2 mb-4">
-            {!shown && (
-              <button onClick={() => runAction('send_to_tv')} className="vx-btn" title="Pošalji na TV" aria-label="Pošalji na TV">
-                <Tv size={18} />
-              </button>
-            )}
-            <button onClick={() => runAction('dismiss')} className="vx-btn" title="Zatvori" aria-label="Zatvori">
-              <X size={18} />
-            </button>
-          </div>
-          <DisplayView
-            large
-            item={shown ?? { id: 'last', title: lastExchange.current.q, markdown: lastExchange.current.a, chart: null, target: 'pc', at: Date.now() }}
-          />
-        </div>
-      )}
       {pointerMode && pointer && <AirPointer x={pointer.x} y={pointer.y} pressed={pressed} />}
     </div>
   );
