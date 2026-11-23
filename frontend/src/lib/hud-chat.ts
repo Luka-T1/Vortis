@@ -18,6 +18,13 @@ export interface AskHandlers {
   onPhase?: (phase: 'thinking' | 'generating' | 'tool') => void;
 }
 
+export const HUD_HISTORY_LIMIT = 10;
+
+export const HUD_SYSTEM_PROMPT =
+  'Ti si Jarvis, lični asistent korisnika. Odgovaraj na jeziku na kom je pitanje postavljeno (srpski latinicom ili engleski). ' +
+  'Budi kratak i jasan: najviše tri do četiri rečenice, osim ako korisnik traži detalje. ' +
+  'Odgovori se često izgovaraju naglas, zato izbegavaj tabele i dugačke liste.';
+
 export async function askJarvis(
   text: string,
   handlers: AskHandlers = {},
@@ -31,7 +38,13 @@ export async function askJarvis(
   if (!convId) convId = store.createConversation(model);
   const userMsg: ChatMessage = { id: generateId(), role: 'user', content: text, timestamp: Date.now() };
   store.addMessage(convId, userMsg);
-  const history = useAppStore.getState().messages.map((m) => ({ role: m.role, content: m.content }));
+  const history = [
+    { role: 'system' as const, content: HUD_SYSTEM_PROMPT },
+    ...useAppStore
+      .getState()
+      .messages.slice(-HUD_HISTORY_LIMIT)
+      .map((m) => ({ role: m.role, content: m.content })),
+  ];
   store.addMessage(convId, { id: generateId(), role: 'assistant', content: '', timestamp: Date.now() });
 
   const { temperature, maxTokens } = store.settings;

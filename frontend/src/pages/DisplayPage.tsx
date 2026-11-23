@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArcReactor } from '../components/Hud/ArcReactor';
+import { VoiceOrb } from '../components/Hud/VoiceOrb';
+import { HudBackdrop } from '../components/Hud/HudBackdrop';
 import { DisplayView, type DisplayItem } from '../components/Display/DisplayView';
 import { apiFetch } from '../lib/api';
 import { useHudEvents } from '../lib/hud-api';
@@ -39,23 +40,26 @@ export function DisplayPage() {
 
   return (
     <div
-      className="fixed inset-0 overflow-auto"
-      style={{ background: 'var(--color-bg)', color: 'var(--color-text)', cursor: 'none' }}
+      className="vx-root fixed inset-0 overflow-auto"
+      style={{ cursor: 'none' }}
       onDoubleClick={() => document.documentElement.requestFullscreen?.()}
     >
-      <div className="hud-backdrop" aria-hidden="true" />
-      <div className="relative z-10 min-h-full flex flex-col px-[5vw] py-[4vh]">
-        <div className="flex justify-between text-lg tracking-[0.3em]" style={{ color: 'var(--color-text-tertiary)' }}>
-          <span style={{ color: 'var(--color-accent)' }}>J.A.R.V.I.S.</span>
-          <span className="tabular-nums">{clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+      <HudBackdrop />
+      <div className="relative min-h-full flex flex-col px-[5vw] py-[4vh]">
+        <div className="flex items-center gap-3 text-lg">
+          <span className="vx-brand-dot" aria-hidden="true" />
+          <span className="vx-brand" style={{ fontSize: 20 }}>V.O.R.T.I.S</span>
+          <span className="ml-auto tabular-nums" style={{ color: 'var(--vx-muted)' }}>
+            {clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
         <div className="flex-1 flex items-center justify-center py-8">
           {item ? (
             <DisplayView item={item} large />
           ) : (
             <div className="flex flex-col items-center gap-10">
-              <ArcReactor state={connected === false ? 'offline' : 'idle'} size={320} />
-              <div className="text-xl" style={{ color: 'var(--color-text-secondary)' }}>
+              <VoiceOrb state={connected === false ? 'offline' : 'idle'} size={340} label={false} />
+              <div className="vx-heading text-2xl" style={{ color: 'var(--vx-muted)' }}>
                 {connected === false
                   ? 'Nema veze sa Jarvisom. Upari ovaj ekran QR kodom sa HUD-a.'
                   : 'Čekam da Jarvis nešto prikaže.'}

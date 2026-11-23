@@ -193,9 +193,9 @@ export default function App() {
       <Routes>
         <Route path="pair" element={<PairPage />} />
         <Route path="display" element={<DisplayPage />} />
+        <Route path="hud" element={<HudPage />} />
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
-          <Route path="hud" element={<HudPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />

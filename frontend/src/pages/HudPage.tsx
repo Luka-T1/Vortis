@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Camera, CameraOff, Maximize2, Mic, MicOff, Send, Hand, ShieldCheck, Tv, X } from 'lucide-react';
-import { ArcReactor, type ReactorState } from '../components/Hud/ArcReactor';
+import { Camera, CameraOff, Hand, Maximize2, MessageSquare, Mic, MicOff, Send, ShieldCheck, Tv, X } from 'lucide-react';
+import { VoiceOrb, type OrbState } from '../components/Hud/VoiceOrb';
+import { HudBackdrop } from '../components/Hud/HudBackdrop';
+import { ConfirmationGate } from '../components/ConfirmationGate';
 import { AirPointer, HandOverlay } from '../components/Hud/HandOverlay';
 import { PairDevicePanel } from '../components/Hud/PairDevicePanel';
 import { GestureEngine, type GestureFrame } from '../lib/gestures';
@@ -28,7 +30,7 @@ import {
   useHudEvents,
 } from '../lib/hud-api';
 import { askJarvis, type HudToolCall, type ToolOutcome } from '../lib/hud-chat';
-import { useSpeech } from '../hooks/useSpeech';
+import { useHandsFree } from '../hooks/useHandsFree';
 import { useTts } from '../hooks/useTts';
 import { useAppStore } from '../lib/store';
 import { checkHealth } from '../lib/api';
@@ -43,18 +45,36 @@ const PANEL_TITLES: Record<Panel, string> = {
 };
 
 const OUTCOME_STYLE: Record<ToolOutcome, { label: string; color: string }> = {
-  running: { label: 'radi…', color: 'var(--color-accent)' },
-  done: { label: 'urađeno', color: '#4ade80' },
-  unverified: { label: 'nepotvrđeno', color: 'var(--color-accent-amber)' },
-  failed: { label: 'neuspeh', color: 'var(--color-error)' },
+  running: { label: 'radi…', color: 'var(--vx-cyan)' },
+  done: { label: 'urađeno', color: 'var(--vx-green)' },
+  unverified: { label: 'nepotvrđeno', color: 'var(--vx-amber)' },
+  failed: { label: 'neuspeh', color: 'var(--vx-red)' },
 };
+
+const EXAMPLES = [
+  'Koliko je sati?',
+  'Izračunaj 17 × 23',
+  'Objasni mi Pitagorinu teoremu',
+  'Napravi plan za sutra',
+  'Šta sve možeš da uradiš?',
+  'Pošalji na TV',
+  'Uvećaj odgovor',
+  'Prevedi „dobro jutro” na engleski',
+];
+
+const VOICE_STATUS = {
+  off: { label: 'Mikrofon isključen', tone: 'vx-pill--off' },
+  sleeping: { label: 'Reci „Jarvis”', tone: 'vx-pill--muted' },
+  awake: { label: 'Slušam', tone: '' },
+  hearing: { label: 'Čujem te', tone: '' },
+  transcribing: { label: 'Prepoznajem', tone: '' },
+} as const;
 
 const CAMERA_KEY = 'vortis-hud-camera';
 
 export function HudPage() {
   const navigate = useNavigate();
   const selectedModel = useAppStore((s) => s.selectedModel);
-  const speech = useSpeech();
   const tts = useTts();
 
   const [online, setOnline] = useState<boolean | null>(null);
@@ -83,10 +103,6 @@ export function HudPage() {
   const [shown, setShown] = useState<DisplayItem | null>(null);
   const [notice, setNotice] = useState('');
   const lastExchange = useRef<{ q: string; a: string }>({ q: '', a: '' });
-
-  useEffect(() => {
-    if (window.innerWidth < 768) useAppStore.getState().setSidebarOpen(false);
-  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -129,8 +145,10 @@ export function HudPage() {
   });
 
   const runActionRef = useRef<(a: HudAction) => void>(() => {});
+  const fromVoiceRef = useRef(false);
   const ask = useCallback(
-    async (text: string) => {
+    async (text: string, viaVoice = false) => {
+      fromVoiceRef.current = viaVoice;
       const q = text.trim();
       if (!q) return;
       const command = matchVoiceCommand(q);
@@ -154,7 +172,7 @@ export function HudPage() {
         );
         setPhase('idle');
         lastExchange.current = { q, a: answer };
-        if (answer && tts.available) void tts.speak(`hud-${Date.now()}`, answer);
+        if (answer && (viaVoice || tts.available)) void tts.speak(`hud-${Date.now()}`, answer);
       } catch (e) {
         setPhase('idle');
         if ((e as Error).name !== 'AbortError') setError((e as Error).message);
@@ -163,24 +181,35 @@ export function HudPage() {
     [tts],
   );
 
+  const voice = useHandsFree({
+    onCommand: (text) => void ask(text, true),
+    onWake: () => setNotice('Slušam…'),
+    paused: tts.isSpeaking || tts.isLoading,
+  });
+
+  const wasSpeaking = useRef(false);
+  useEffect(() => {
+    const speakingNow = tts.isSpeaking || tts.isLoading;
+    if (wasSpeaking.current && !speakingNow && fromVoiceRef.current && voice.enabled) void voice.wake(7000);
+    wasSpeaking.current = speakingNow;
+  }, [tts.isSpeaking, tts.isLoading, voice]);
+
   const toggleListen = useCallback(async () => {
-    if (speech.isRecording) {
-      try {
-        const text = await speech.stopRecording();
-        void ask(text);
-      } catch {}
-    } else if (!speech.isTranscribing) {
-      tts.stop();
-      await speech.startRecording();
+    if (voice.available === false) {
+      setError(voice.reason);
+      return;
     }
-  }, [speech, ask, tts]);
+    tts.stop();
+    if (voice.awake) voice.sleep();
+    else await voice.wake();
+  }, [voice, tts]);
 
   const stopAll = useCallback(() => {
     abortRef.current?.abort();
     tts.stop();
-    if (speech.isRecording) speech.stopRecording().catch(() => {});
+    voice.sleep();
     setPhase('idle');
-  }, [speech, tts]);
+  }, [voice, tts]);
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -336,138 +365,178 @@ export function HudPage() {
     } catch {}
   };
 
-  const reactorState: ReactorState =
+  const orbState: OrbState =
     online === false
       ? 'offline'
-      : speech.isRecording
-        ? 'listening'
-        : phase === 'thinking' || phase === 'tool' || speech.isTranscribing
-          ? 'thinking'
-          : phase === 'generating' || tts.isSpeaking
-            ? 'speaking'
-            : 'idle';
+      : phase === 'thinking' || phase === 'tool' || (voice.mode === 'transcribing' && voice.awake)
+        ? 'thinking'
+        : phase === 'generating' || tts.isSpeaking
+          ? 'speaking'
+          : voice.mode === 'hearing' || voice.awake
+            ? 'listening'
+            : voice.enabled
+              ? 'sleeping'
+              : 'idle';
 
   const recentGesture = lastGesture && Date.now() - lastGesture.at < 2500 ? lastGesture : null;
+  const voiceStatus = VOICE_STATUS[voice.mode];
+  const statusLine = recentGesture
+    ? `${GESTURE_LABELS[recentGesture.g]} → ${ACTION_LABELS[recentGesture.action]}`
+    : notice || (pointerMode ? 'Vazdušni miš: nišani kažiprstom, štipni za klik' : '');
 
   return (
-    <div className="hud-root flex flex-col h-full overflow-hidden" style={{ color: 'var(--color-text)' }}>
-      <header className="flex items-center gap-3 pl-14 md:pl-4 pr-4 py-2 shrink-0 text-xs tracking-widest">
-        <span className="font-bold" style={{ color: 'var(--color-accent)' }}>J.A.R.V.I.S.</span>
-        <span style={{ color: 'var(--color-text-tertiary)' }}>{selectedModel || 'bez modela'}</span>
-        <span className="ml-auto tabular-nums">{clock.toLocaleTimeString()}</span>
+    <div className="vx-root relative flex flex-col h-full w-full overflow-hidden">
+      <HudBackdrop />
+      <ConfirmationGate />
+
+      <header className="flex items-center gap-3 px-5 md:px-8 pt-4 pb-3 shrink-0">
+        <span className="vx-brand-dot" aria-hidden="true" />
+        <span className="vx-brand">V.O.R.T.I.S</span>
+        <span className={`vx-pill hidden md:inline-flex ${online === false ? 'vx-pill--warn' : ''}`}>
+          {online === false ? 'Server nije dostupan' : selectedModel || 'Lokalni model'}
+        </span>
+        <span className="ml-auto text-sm tabular-nums hidden sm:inline" style={{ color: 'var(--vx-muted)' }}>
+          {clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+        <span className={`vx-pill ${voiceStatus.tone}`} title={voice.lastHeard ? `Poslednje čuto: ${voice.lastHeard}` : undefined}>
+          {voiceStatus.label}
+        </span>
         <button
-          title={allowGestureConfirm ? 'Palac gore potvrđuje akcije' : 'Palac gore NE potvrđuje (samo dugme)'}
-          onClick={toggleGestureConfirm}
-          className="flex items-center gap-1 px-2 py-1 rounded cursor-pointer"
-          style={{
-            border: '1px solid var(--color-border)',
-            color: allowGestureConfirm ? 'var(--color-accent-amber)' : 'var(--color-text-tertiary)',
-          }}
+          className={`vx-btn${voice.enabled ? ' is-on' : ''}`}
+          onClick={() => void voice.toggle()}
+          disabled={voice.available === false}
+          title={
+            voice.available === false
+              ? voice.reason
+              : voice.enabled
+                ? 'Isključi stalno slušanje'
+                : 'Uključi stalno slušanje (budna reč „Jarvis”)'
+          }
+          aria-label="Stalno slušanje"
         >
-          <ShieldCheck size={14} /> 👍
+          {voice.enabled ? <Mic size={16} /> : <MicOff size={16} />}
         </button>
         <button
-          title={cameraOn ? 'Isključi kameru' : 'Uključi praćenje ruku'}
+          className={`vx-btn${cameraOn ? ' is-on' : ''}`}
           onClick={cameraOn ? stopCamera : startCamera}
-          className="p-1.5 rounded cursor-pointer"
-          style={{ border: '1px solid var(--color-border)' }}
+          title={cameraOn ? 'Isključi kameru' : 'Uključi praćenje ruku'}
+          aria-label="Kamera"
         >
-          {cameraOn ? <CameraOff size={14} /> : <Camera size={14} />}
+          {cameraOn ? <Camera size={16} /> : <CameraOff size={16} />}
         </button>
-        <button title="Ceo ekran" onClick={toggleFullscreen} className="p-1.5 rounded cursor-pointer" style={{ border: '1px solid var(--color-border)' }}>
-          <Maximize2 size={14} />
+        <button
+          className={`vx-btn hidden sm:inline-flex${allowGestureConfirm ? ' is-on' : ''}`}
+          onClick={toggleGestureConfirm}
+          title={allowGestureConfirm ? 'Palac gore potvrđuje akcije' : 'Palac gore NE potvrđuje (samo dugme)'}
+          aria-label="Potvrda palcem"
+        >
+          <ShieldCheck size={16} />
+        </button>
+        <button className="vx-btn hidden sm:inline-flex" onClick={toggleFullscreen} title="Ceo ekran" aria-label="Ceo ekran">
+          <Maximize2 size={16} />
+        </button>
+        <button className="vx-btn" onClick={() => navigate('/')} title="Klasičan chat" aria-label="Chat">
+          <MessageSquare size={16} />
         </button>
       </header>
 
-      <div className="flex-1 min-h-0 grid gap-4 px-4 pb-2 hud-grid">
-        <section className="hud-panel flex flex-col gap-2 min-h-0">
-          <div className="hud-panel-title flex items-center gap-2">
+      <div className="flex-1 min-h-0 vx-grid px-5 md:px-8 pb-3">
+        <section className="vx-panel">
+          <div className="vx-panel-head">
             <Hand size={14} /> Praćenje ruku
             {cameraOn && frame && (
-              <span className="ml-auto" style={{ color: 'var(--color-text-tertiary)' }}>
+              <span className="ml-auto normal-case tracking-normal" style={{ color: 'var(--vx-dim)' }}>
                 {frame.hands.length} ruk{frame.hands.length === 1 ? 'a' : 'e'} · {frame.fps} fps
               </span>
             )}
           </div>
-          <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '4 / 3', background: '#000' }}>
-            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)', opacity: cameraOn ? 0.55 : 0 }} />
-            <HandOverlay frame={frame} className="absolute inset-0" />
-            {!cameraOn && (
-              <button
-                onClick={startCamera}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                <Camera size={28} />
-                Uključi kameru za kontrolu pokretima
-                <span style={{ color: 'var(--color-text-tertiary)' }}>Slika ne napušta ovaj uređaj.</span>
-              </button>
-            )}
-          </div>
-          {cameraError && <div className="text-xs" style={{ color: 'var(--color-error)' }}>{cameraError}</div>}
-          <div className="text-xs h-5" style={{ color: 'var(--color-accent)' }}>
-            {recentGesture ? `${GESTURE_LABELS[recentGesture.g]} → ${ACTION_LABELS[recentGesture.action]}` : notice ? notice : pointerMode ? 'Vazdušni miš: nišani kažiprstom, štipni za klik' : ''}
-          </div>
-        </section>
-
-        <section className="flex flex-col items-center justify-center gap-8 min-h-0 overflow-hidden">
-          <button onClick={toggleListen} className="cursor-pointer rounded-full" title="Klikni ili pokaži otvoren dlan da pričaš">
-            <ArcReactor state={reactorState} size={240} />
-          </button>
-          <div className="w-full max-w-2xl text-center flex flex-col gap-3 min-h-0 overflow-auto">
-            {heard && <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>„{heard}”</div>}
-            {reply && <div className="text-lg leading-relaxed whitespace-pre-wrap">{reply}</div>}
-            {error && <div className="text-sm" style={{ color: 'var(--color-error)' }}>{error}</div>}
-            {!heard && !reply && (
-              <div className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
-                Reci nešto, napiši ispod, ili pokaži otvoren dlan.
+          <div className="vx-panel-body flex flex-col gap-3">
+            <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '4 / 3', background: '#02070d', border: '1px solid var(--vx-line)' }}>
+              <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)', opacity: cameraOn ? 0.55 : 0 }} />
+              <HandOverlay frame={frame} className="absolute inset-0" />
+              {!cameraOn && (
+                <button
+                  onClick={startCamera}
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs cursor-pointer px-4 text-center"
+                  style={{ color: 'var(--vx-muted)' }}
+                >
+                  <Camera size={26} style={{ color: 'var(--vx-cyan)' }} />
+                  Uključi kameru za kontrolu pokretima
+                  <span style={{ color: 'var(--vx-dim)' }}>Slika ne napušta ovaj uređaj.</span>
+                </button>
+              )}
+            </div>
+            {cameraError && <div className="text-xs" style={{ color: 'var(--vx-red)' }}>{cameraError}</div>}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between text-[11px] tracking-widest uppercase" style={{ color: 'var(--vx-dim)' }}>
+                <span>Mikrofon</span>
+                <span>{voice.enabled ? 'aktivan' : 'isključen'}</span>
+              </div>
+              <div className="vx-meter"><div style={{ width: `${Math.round(voice.level * 100)}%` }} /></div>
+            </div>
+            <div className="text-xs min-h-5" style={{ color: 'var(--vx-cyan)' }}>{statusLine}</div>
+            {(voice.error || (voice.available === false && voice.reason)) && (
+              <div className="text-xs leading-relaxed" style={{ color: 'var(--vx-amber)' }}>
+                {voice.error || voice.reason}
               </div>
             )}
           </div>
         </section>
 
-        <section className="hud-panel flex flex-col gap-2 min-h-0">
-          <div className="hud-panel-title flex items-center gap-1">
+        <section className="flex flex-col items-center justify-center gap-6 min-h-0 overflow-hidden py-2">
+          <div className="vx-heard" style={{ visibility: heard ? 'visible' : 'hidden' }}>
+            <b>Hej Jarvis,</b>
+            <span>{heard || '…'}</span>
+          </div>
+          <button onClick={toggleListen} className="cursor-pointer rounded-full" title="Klikni, reci „Jarvis” ili pokaži otvoren dlan">
+            <VoiceOrb state={orbState} level={voice.level} size={300} />
+          </button>
+          <div className="w-full max-w-2xl text-center flex flex-col gap-3 min-h-0 overflow-auto mt-6 px-2">
+            {reply && <div className="vx-reply">{reply}</div>}
+            {error && <div className="text-sm" style={{ color: 'var(--vx-red)' }}>{error}</div>}
+            {!heard && !reply && !error && (
+              <div className="vx-heading text-2xl md:text-3xl">
+                Reci <span className="vx-gradient-text">„Jarvis”</span> i pitaj šta god želiš.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="vx-panel">
+          <div className="vx-panel-head" role="tablist">
             {PANELS.map((p) => (
               <button
                 key={p}
+                role="tab"
+                aria-selected={p === panel}
                 onClick={() => setPanel(p)}
-                className="px-2 py-0.5 rounded cursor-pointer"
-                style={{
-                  color: p === panel ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
-                  borderBottom: p === panel ? '1px solid var(--color-accent)' : '1px solid transparent',
-                }}
+                className={`vx-tab${p === panel ? ' is-active' : ''}`}
               >
                 {PANEL_TITLES[p]}
               </button>
             ))}
           </div>
-          <div className="flex-1 min-h-0 overflow-auto">
+          <div className="vx-panel-body">
             {panel === 'activity' && (
-              <ul className="flex flex-col gap-1.5 text-xs">
-                {feed.length === 0 && <li style={{ color: 'var(--color-text-tertiary)' }}>Još nema poziva alata.</li>}
+              <ul className="flex flex-col gap-2 text-xs">
+                {feed.length === 0 && <li style={{ color: 'var(--vx-dim)' }}>Još nema poziva alata.</li>}
                 {feed.map((f) => (
                   <li key={f.id} className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: OUTCOME_STYLE[f.outcome].color }} />
-                    <code className="truncate flex-1">{f.tool}</code>
+                    <span className="vx-feed-dot" style={{ color: OUTCOME_STYLE[f.outcome].color }} />
+                    <code className="truncate flex-1" style={{ color: 'var(--vx-text)' }}>{f.tool}</code>
                     <span style={{ color: OUTCOME_STYLE[f.outcome].color }}>{OUTCOME_STYLE[f.outcome].label}</span>
-                    {f.latency ? <span style={{ color: 'var(--color-text-tertiary)' }}>{f.latency.toFixed(1)}s</span> : null}
+                    {f.latency ? <span style={{ color: 'var(--vx-dim)' }}>{f.latency.toFixed(1)}s</span> : null}
                   </li>
                 ))}
               </ul>
             )}
             {panel === 'devices' && <PairDevicePanel />}
             {panel === 'gestures' && (
-              <ul className="flex flex-col gap-1.5 text-xs">
+              <ul className="flex flex-col gap-2 text-xs">
                 {ALL_GESTURES.map((g) => (
                   <li key={g} className="flex items-center justify-between gap-2">
-                    <span>{GESTURE_LABELS[g]}</span>
-                    <select
-                      value={bindings[g]}
-                      onChange={(e) => rebind(g, e.target.value as HudAction)}
-                      className="text-xs rounded px-1 py-0.5 max-w-[55%]"
-                      style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-subtle)' }}
-                    >
+                    <span style={{ color: 'var(--vx-muted)' }}>{GESTURE_LABELS[g]}</span>
+                    <select value={bindings[g]} onChange={(e) => rebind(g, e.target.value as HudAction)} className="vx-select">
                       {HUD_ACTIONS.map((a) => (
                         <option key={a} value={a}>
                           {ACTION_LABELS[a]}
@@ -484,7 +553,7 @@ export function HudPage() {
                       saveBindings(DEFAULT_GESTURE_MAP);
                     }}
                     className="cursor-pointer underline"
-                    style={{ color: 'var(--color-text-tertiary)' }}
+                    style={{ color: 'var(--vx-dim)' }}
                   >
                     Vrati podrazumevano
                   </button>
@@ -495,8 +564,18 @@ export function HudPage() {
         </section>
       </div>
 
+      <div className="vx-marquee px-5 md:px-8 pb-3 shrink-0">
+        <div className="vx-marquee__track">
+          {[...EXAMPLES, ...EXAMPLES].map((q, i) => (
+            <button key={i} className="vx-chip" onClick={() => void ask(q)} tabIndex={i < EXAMPLES.length ? 0 : -1}>
+              „{q}”
+            </button>
+          ))}
+        </div>
+      </div>
+
       <form
-        className="flex items-center gap-2 px-4 pb-4 shrink-0"
+        className="flex items-center gap-3 px-5 md:px-8 pb-5 shrink-0"
         onSubmit={(e) => {
           e.preventDefault();
           void ask(input);
@@ -506,37 +585,35 @@ export function HudPage() {
         <button
           type="button"
           onClick={toggleListen}
-          disabled={!speech.available && !speech.isRecording}
-          title={speech.available ? 'Pričaj' : 'Prepoznavanje govora nije podešeno na serveru'}
-          className="p-2.5 rounded-full cursor-pointer disabled:opacity-40"
-          style={{ background: speech.isRecording ? '#4ade80' : 'var(--color-bg-tertiary)' }}
+          disabled={voice.available === false}
+          title={voice.available === false ? voice.reason : voice.awake ? 'Prestani da slušaš' : 'Pričaj sada'}
+          className={`vx-btn${voice.awake ? ' is-on' : ''}`}
+          style={{ height: 48, width: 48, borderRadius: 14 }}
+          aria-label="Pričaj"
         >
-          {speech.isRecording ? <MicOff size={18} /> : <Mic size={18} />}
+          {voice.awake ? <MicOff size={18} /> : <Mic size={18} />}
         </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Pitaj Jarvisa…"
-          className="flex-1 min-w-0 px-4 py-2.5 rounded-full text-sm"
-          style={{ background: 'var(--color-input-bg)', border: '1px solid var(--color-input-border)' }}
+          className="vx-input"
+          aria-label="Pitanje"
         />
-        <button type="submit" className="p-2.5 rounded-full cursor-pointer" style={{ background: 'var(--color-accent)', color: 'var(--color-text-inverse)' }}>
-          <Send size={18} />
-        </button>
-        <button type="button" onClick={() => navigate('/')} className="text-xs px-2 cursor-pointer" style={{ color: 'var(--color-text-tertiary)' }}>
-          Chat
+        <button type="submit" className="vx-btn vx-btn--primary" style={{ height: 48, borderRadius: 14, padding: '0 20px' }}>
+          <Send size={16} /> <span className="hidden sm:inline">Pošalji</span>
         </button>
       </form>
 
       {(expanded || shown) && (
-        <div className="fixed inset-0 z-40 overflow-auto px-[6vw] py-[6vh]" style={{ background: 'color-mix(in srgb, var(--color-bg) 94%, transparent)' }}>
+        <div className="fixed inset-0 z-40 overflow-auto px-[6vw] py-[6vh]" style={{ background: 'rgba(3, 10, 18, 0.95)' }}>
           <div className="flex justify-end gap-2 mb-4">
             {!shown && (
-              <button onClick={() => runAction('send_to_tv')} className="p-2 rounded-full cursor-pointer" title="Pošalji na TV" style={{ background: 'var(--color-bg-tertiary)' }}>
+              <button onClick={() => runAction('send_to_tv')} className="vx-btn" title="Pošalji na TV" aria-label="Pošalji na TV">
                 <Tv size={18} />
               </button>
             )}
-            <button onClick={() => runAction('dismiss')} className="p-2 rounded-full cursor-pointer" title="Zatvori" style={{ background: 'var(--color-bg-tertiary)' }}>
+            <button onClick={() => runAction('dismiss')} className="vx-btn" title="Zatvori" aria-label="Zatvori">
               <X size={18} />
             </button>
           </div>
