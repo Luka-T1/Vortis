@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from vortis.core.events import EventBus, EventType, get_event_bus
 
-KINDS = ("markdown", "chart")
+KINDS = ("markdown", "chart", "simulation")
 CHART_TYPES = ("line", "bar", "area", "scatter", "pie")
 MAX_POINTS = 5000
 MAX_TEXT = 20000
@@ -75,17 +75,44 @@ def push(
     title: str = "",
     markdown: str = "",
     chart: Any = None,
+    simulation: Any = None,
+    values: Optional[Dict[str, float]] = None,
     target: str = "all",
     source: str = "",
+    item_id: str = "",
 ) -> Dict[str, Any]:
-    """Publish one item to the screens. ``target``: 'tv', 'phone', 'pc' or 'all'."""
-    if not markdown and chart is None:
-        raise DisplayError("nothing to show: give markdown and/or chart")
+    """Publish one item to the screens. ``target``: 'tv', 'phone', 'pc' or 'all'.
+
+    Re-using ``item_id`` updates a panel that is already open (for example a
+    simulation whose sliders moved on another device).
+    """
+    if not markdown and chart is None and simulation is None:
+        raise DisplayError("nothing to show: give markdown, chart or simulation")
+    sim = None
+    if simulation is not None:
+        from vortis.display.simulation import SimulationError, validate_simulation
+
+        try:
+            sim = validate_simulation(simulation)
+        except SimulationError as exc:
+            raise DisplayError(f"simulation: {exc}") from exc
+    clean_values: Dict[str, float] = {}
+    if sim is not None and values:
+        bounds = {p["id"]: (p["min"], p["max"]) for p in sim["params"]}
+        for key, val in values.items():
+            if key in bounds:
+                try:
+                    lo, hi = bounds[key]
+                    clean_values[key] = min(hi, max(lo, float(val)))
+                except (TypeError, ValueError):
+                    continue
     item = {
-        "id": uuid.uuid4().hex[:12],
+        "id": (item_id or uuid.uuid4().hex)[:32],
         "title": str(title)[:200],
         "markdown": str(markdown)[:MAX_TEXT],
         "chart": validate_chart(chart) if chart is not None else None,
+        "simulation": sim,
+        "values": clean_values,
         "target": (target or "all").lower()[:20],
         "source": source[:40],
         "at": time.time(),

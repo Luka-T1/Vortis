@@ -255,3 +255,25 @@ def test_display_push_and_tool():
     assert res.success and res.metadata["outcome"] == "unverified"
     pushes = [e for e in bus.history if e.event_type == EventType.DISPLAY_PUSH]
     assert len(pushes) == 2 and pushes[-1].data["markdown"] == "# hi"
+
+
+def test_display_push_simulation_with_id():
+    bus = EventBus(record_history=True)
+    client = TestClient(_app(bus))
+    from vortis.display import bind_display
+
+    bind_display(bus)
+    sim = {
+        "mode": "function",
+        "params": [{"id": "k", "min": 0, "max": 5, "value": 2}],
+        "x": {"id": "x", "from": 0, "to": 1, "steps": 10},
+        "series": [{"id": "y", "expr": "k*x"}],
+    }
+    r = client.post(
+        "/v1/display",
+        json={"title": "Prava", "simulation": sim, "values": {"k": 9}, "id": "sim_1"},
+    )
+    assert r.status_code == 200
+    assert r.json()["id"] == "sim_1" and r.json()["values"] == {"k": 5.0}
+    bad_id = client.post("/v1/display", json={"simulation": sim, "id": "a b"})
+    assert bad_id.status_code == 422

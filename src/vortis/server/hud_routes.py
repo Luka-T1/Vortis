@@ -157,8 +157,11 @@ class DisplayBody(BaseModel):
     title: str = Field(default="", max_length=200)
     markdown: str = Field(default="", max_length=20000)
     chart: Optional[Dict[str, Any]] = None
+    simulation: Optional[Dict[str, Any]] = None
+    values: Optional[Dict[str, float]] = None
     target: str = Field(default="all", max_length=20)
     source: str = Field(default="hud", max_length=40)
+    id: str = Field(default="", max_length=32, pattern=r"^[A-Za-z0-9_-]*$")
 
 
 @router.post("/v1/display")
@@ -170,8 +173,11 @@ async def display_push(body: DisplayBody) -> Dict[str, Any]:
             title=body.title,
             markdown=body.markdown,
             chart=body.chart,
+            simulation=body.simulation,
+            values=body.values,
             target=body.target,
             source=body.source,
+            item_id=body.id,
         )
     except DisplayError as exc:
         raise HTTPException(400, str(exc)) from exc
