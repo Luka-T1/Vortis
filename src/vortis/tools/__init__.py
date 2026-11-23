@@ -48,6 +48,7 @@ _BUILTIN_TOOL_MODULES = (
     "browser_axtree",
     "proactive_tools",
     "show_on_screen",
+    "simulate",
 )
 
 for _name in _BUILTIN_TOOL_MODULES:

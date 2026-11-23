@@ -500,7 +500,7 @@ class SystemBuilder:
             tools = []
         tools += [
             all_tools[n]
-            for n in [*plugin_tool_names, "show_on_screen"]
+            for n in [*plugin_tool_names, "show_on_screen", "simulate"]
             if n in all_tools and n not in (tool_names or [])
         ]
 

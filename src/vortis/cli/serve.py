@@ -27,6 +27,7 @@ from vortis.intelligence import (
 logger = logging.getLogger(__name__)
 
 _DEFAULT_TOOLS = frozenset({"think", "calculator", "web_search"})
+_DISPLAY_TOOLS = frozenset({"show_on_screen", "simulate"})
 
 
 def _resolve_server_cors_origins(configured: object) -> list[str]:
@@ -100,6 +101,7 @@ def _build_serve_tools(
     from vortis.tools._stubs import BaseTool
 
     allowed, tools_configured = _resolve_allowed_tools(config)
+    allowed = allowed | _DISPLAY_TOOLS
 
     tools = []
     for name in ToolRegistry.keys():
