@@ -29,6 +29,27 @@ Default bindings (change any of them in HUD, Gestovi; saved per device):
 | Swipe left / right | switch the right-hand panel |
 | Swipe up / down | send to the TV / dismiss |
 
+## Hands-free voice
+
+The HUD listens all the time once the microphone is allowed. Speech is cut
+into short phrases in the browser and only those phrases are sent to the local
+Vortis server for recognition. Nothing is sent while no one is talking.
+
+- Say "Jarvis" (or "Džarvis", "hej Jarvis") followed by the question:
+  "Jarvis, koliko je sati?".
+- Saying only "Jarvis" plays a short tone and the next phrase within eight
+  seconds is taken as the question.
+- After a spoken answer Jarvis keeps listening for seven seconds, so a
+  follow-up needs no wake word.
+- The microphone button in the header turns continuous listening on or off;
+  the button next to the input field, a click on the orb or an open palm
+  starts a single question.
+
+Recognition runs locally with faster-whisper (`small` model by default) and
+needs the speech extra: `uv sync --extra speech`. Replies are spoken by the
+browser with a Serbian or Croatian voice when one is installed (Microsoft Edge
+includes natural Serbian voices), otherwise by the server's TTS backend.
+
 ## Voice commands
 
 A short utterance that matches a command runs the same action as the gesture,
